@@ -1,0 +1,53 @@
+# PlanCast Production Dependencies
+# Locked versions for 24/7 reliability
+
+# Core Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+pydantic==2.5.0
+
+# File Processing
+PyMuPDF==1.23.8               # PDF processing
+pdf2image==1.16.3             # PDF to image conversion  
+Pillow==10.1.0                 # Image processing
+aiofiles==23.2.1              # Async file operations
+
+# CubiCasa5K Dependencies (Mac Compatible)
+torch==1.12.1
+torchvision==0.13.1
+opencv-python==4.6.0.66
+scikit-image==0.19.3
+shapely==1.8.5
+svgpathtools==1.5.1
+gdown==4.6.0
+
+# 3D Processing and Mesh Generation
+open3d==0.16.0                # 3D geometry processing
+trimesh==3.15.8               # Mesh operations and export
+numpy==1.23.5                 # Numerical computing (compatible across all libs)
+scipy==1.9.3                  # Scientific computing
+
+# Export Formats
+pygltflib==1.15.6             # GLB export
+numpy-stl==2.17.1             # STL export
+
+# Environment and Configuration
+python-dotenv==0.21.0         # Environment variables
+pydantic-settings==2.0.3      # Settings management
+
+# Logging and Monitoring
+structlog==22.3.0             # Structured logging
+rich==13.7.0                  # Rich console output
+
+# Development and Testing
+pytest==7.4.3                 # Testing framework
+pytest-asyncio==0.21.1        # Async testing
+httpx==0.25.2                 # HTTP client for testing
+
+# Error Handling and Monitoring
+sentry-sdk[fastapi]==1.38.0   # Error tracking (optional)
+
+# Additional Utilities
+python-magic==0.4.27          # File type detection
+validators==0.22.0            # Input validation helpers
