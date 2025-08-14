@@ -1,5 +1,5 @@
-# PlanCast Production Dependencies
-# Locked versions for 24/7 reliability
+# PlanCast Local Development Dependencies
+# Locked versions for local development compatibility
 
 # Core Web Framework
 fastapi==0.104.1
@@ -13,19 +13,19 @@ pdf2image==1.16.3             # PDF to image conversion
 Pillow==10.1.0                 # Image processing
 aiofiles==23.2.1              # Async file operations
 
-# CubiCasa5K Dependencies (Railway Compatible - PyTorch 2.x)
-torch==2.2.0
-torchvision==0.17.0
+# CubiCasa5K Dependencies (Local Development - PyTorch 1.x)
+torch==1.12.1
+torchvision==0.13.1
 opencv-python==4.6.0.66
 scikit-image==0.19.3
-shapely==2.0.2
+shapely==1.8.5
 svgpathtools==1.5.1
 gdown==4.6.0
 
 # 3D Processing and Mesh Generation
 open3d==0.16.0                # 3D geometry processing
-trimesh==4.0.5                # Mesh operations and export
-numpy==1.24.3                 # Numerical computing (compatible across all libs)
+trimesh==3.15.8               # Mesh operations and export
+numpy==1.23.5                 # Numerical computing (compatible across all libs)
 scipy==1.9.3                  # Scientific computing
 
 # Export Formats

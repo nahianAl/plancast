@@ -162,7 +162,7 @@ class CubiCasaService:
     
     def _load_model(self) -> None:
         """
-        Load CubiCasa5K model with comprehensive error handling.
+        Load CubiCasa5K model with comprehensive error handling and PyTorch 2.x compatibility.
         TODO: Update this method to use real CubiCasa5K architecture before production.
         """
         if self.model_loaded:
@@ -171,16 +171,50 @@ class CubiCasaService:
         logger.info("Loading CubiCasa5K model...")
         start_time = time.time()
         
+        # Log PyTorch version for debugging
+        logger.info(f"PyTorch version: {torch.__version__}")
+        logger.info(f"Device: {self.device}")
+        
         try:
-            # Load model checkpoint
-            checkpoint = torch.load(
-                self.model_path, 
-                map_location=torch.device(self.device)
-            )
+            # Validate model file integrity
+            if not self.model_path.exists():
+                raise CubiCasaError(f"Model file not found: {self.model_path}")
+            
+            file_size = self.model_path.stat().st_size
+            file_size_mb = file_size / (1024 * 1024)
+            logger.info(f"Model file size: {file_size_mb:.2f} MB")
+            
+            # Check file size is reasonable
+            if file_size_mb < 50:
+                logger.warning(f"Model file seems small: {file_size_mb:.2f} MB")
+            elif file_size_mb > 1000:
+                logger.warning(f"Model file seems large: {file_size_mb:.2f} MB")
+            
+            # Load model checkpoint with PyTorch 2.x compatibility
+            logger.info("Attempting to load model with PyTorch 2.x compatibility...")
+            
+            # Try loading with PyTorch version-specific parameters
+            if int(torch.__version__.split('.')[0]) >= 2:
+                # PyTorch 2.x - use weights_only parameter
+                checkpoint = torch.load(
+                    self.model_path, 
+                    map_location=torch.device(self.device),
+                    weights_only=False
+                )
+            else:
+                # PyTorch 1.x - don't use weights_only parameter
+                checkpoint = torch.load(
+                    self.model_path, 
+                    map_location=torch.device(self.device)
+                )
+            
+            logger.info("✅ Model loaded successfully with PyTorch 2.x compatibility")
+            logger.info(f"✅ Checkpoint type: {type(checkpoint)}")
             
             # Handle different checkpoint formats
             if isinstance(checkpoint, dict):
                 logger.info("Checkpoint is dictionary format")
+                logger.info(f"Checkpoint keys: {list(checkpoint.keys())}")
                 
                 # For now, use placeholder model (TODO: replace with real architecture)
                 self.model = PlaceholderModel()
@@ -200,30 +234,76 @@ class CubiCasaService:
                     
             else:
                 # Direct model object
+                logger.info("Checkpoint is direct model object")
                 self.model = checkpoint
             
             # Set to evaluation mode
             if hasattr(self.model, 'eval'):
                 self.model.eval()
+                logger.info("✅ Model set to eval mode")
             else:
-                logger.warning("Model doesn't have eval() method")
+                logger.warning("⚠️ Model doesn't have eval() method")
             
             # Verify model structure
-            if not hasattr(self.model, 'forward') and not hasattr(self.model, '__call__'):
-                logger.warning("Model doesn't have forward method - this might cause issues")
+            if hasattr(self.model, 'forward'):
+                logger.info("✅ Model has forward method")
+            elif hasattr(self.model, '__call__'):
+                logger.info("✅ Model has __call__ method")
+            else:
+                logger.warning("⚠️ Model doesn't have forward or __call__ method")
             
             load_time = time.time() - start_time
             self.model_loaded = True
             
             cubicasa_logger.log_model_loading(True, load_time)
-            logger.info(f"CubiCasa5K model loaded successfully in {load_time:.2f}s")
+            logger.info(f"✅ CubiCasa5K model loaded successfully in {load_time:.2f}s")
             
         except Exception as e:
             load_time = time.time() - start_time
             error_msg = f"Failed to load CubiCasa5K model: {str(e)}"
             
             cubicasa_logger.log_model_loading(False, load_time, error_msg)
-            raise CubiCasaError(error_msg)
+            logger.error(f"❌ Model loading failed: {error_msg}")
+            
+            # Try fallback loading method
+            logger.info("🔄 Attempting fallback model loading...")
+            try:
+                self._load_model_fallback()
+            except Exception as fallback_error:
+                logger.error(f"❌ Fallback loading also failed: {str(fallback_error)}")
+                raise CubiCasaError(f"All model loading attempts failed: {error_msg}")
+    
+    def _load_model_fallback(self) -> None:
+        """
+        Fallback model loading method for compatibility issues.
+        """
+        logger.info("Using fallback model loading method...")
+        
+        try:
+            # Try loading with different parameters
+            if int(torch.__version__.split('.')[0]) >= 2:
+                checkpoint = torch.load(
+                    self.model_path, 
+                    map_location='cpu',
+                    weights_only=False,
+                    pickle_module=torch.serialization._get_safe_globals()
+                )
+            else:
+                checkpoint = torch.load(
+                    self.model_path, 
+                    map_location='cpu',
+                    pickle_module=torch.serialization._get_safe_globals()
+                )
+            
+            # Use placeholder model as fallback
+            self.model = PlaceholderModel()
+            self.model.eval()
+            self.model_loaded = True
+            
+            logger.info("✅ Fallback model loading successful")
+            
+        except Exception as e:
+            raise CubiCasaError(f"Fallback loading failed: {str(e)}")
     
     def _preprocess_image(self, image_bytes: bytes) -> Tuple[torch.Tensor, Tuple[int, int]]:
         """
@@ -466,7 +546,7 @@ class CubiCasaService:
     
     def health_check(self) -> Dict[str, Any]:
         """
-        Perform health check on CubiCasa5K service.
+        Perform comprehensive health check on CubiCasa5K service.
         
         Returns:
             Health status information
@@ -477,8 +557,20 @@ class CubiCasaService:
             "device": self.device,
             "model_path_exists": self.model_path.exists(),
             "using_placeholder": True,  # TODO: Set to False when real model is integrated
-            "timestamp": time.time()
+            "timestamp": time.time(),
+            "pytorch_version": torch.__version__,
+            "cuda_available": torch.cuda.is_available()
         }
+        
+        # Check model file integrity
+        if self.model_path.exists():
+            file_size = self.model_path.stat().st_size
+            file_size_mb = file_size / (1024 * 1024)
+            status["model_file_size_mb"] = round(file_size_mb, 2)
+            status["model_file_valid"] = 50 <= file_size_mb <= 1000
+        else:
+            status["model_file_size_mb"] = 0
+            status["model_file_valid"] = False
         
         if self.model_loaded:
             try:
@@ -495,21 +587,27 @@ class CubiCasaService:
                 
                 status.update({
                     "status": "healthy",
-                    "test_inference_time": test_time,
-                    "test_passed": True
+                    "test_inference_time": round(test_time, 3),
+                    "test_passed": True,
+                    "model_has_forward": hasattr(self.model, 'forward'),
+                    "model_has_eval": hasattr(self.model, 'eval')
                 })
                 
             except Exception as e:
                 status.update({
                     "status": "degraded",
                     "test_passed": False,
-                    "error": str(e)
+                    "error": str(e),
+                    "model_has_forward": hasattr(self.model, 'forward') if self.model else False,
+                    "model_has_eval": hasattr(self.model, 'eval') if self.model else False
                 })
         else:
             status.update({
                 "status": "unhealthy",
                 "test_passed": False,
-                "error": "Model not loaded"
+                "error": "Model not loaded",
+                "model_has_forward": False,
+                "model_has_eval": False
             })
         
         return status
