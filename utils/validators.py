@@ -697,20 +697,37 @@ class PlanCastValidator:
             )
     
     def _detect_mime_type(self, file_bytes: bytes) -> str:
-        """Detect MIME type using multiple methods."""
-        # Try magic numbers first
+        """Detect MIME type using multiple methods with better JPEG detection."""
+        
+        # Check for JPEG magic numbers first (most reliable)
+        if file_bytes.startswith(b'\xff\xd8\xff'):
+            return "image/jpeg"
+        
+        # Check for PNG
+        if file_bytes.startswith(b'\x89PNG\r\n\x1a\n'):
+            return "image/png"
+        
+        # Check for PDF
+        if file_bytes.startswith(b'%PDF'):
+            return "application/pdf"
+        
+        # Try magic library if available
         if MAGIC_AVAILABLE:
             try:
-                return magic.from_buffer(file_bytes, mime=True)
+                mime_type = magic.from_buffer(file_bytes, mime=True)
+                if mime_type in self.SUPPORTED_MIME_TYPES:
+                    return mime_type
             except Exception:
                 pass
         
-        # Fallback to mimetypes based on content
+        # Fallback to imghdr
         try:
             import imghdr
             image_type = imghdr.what(None, h=file_bytes)
-            if image_type:
-                return f"image/{image_type}"
+            if image_type == 'jpeg':
+                return "image/jpeg"
+            elif image_type == 'png':
+                return "image/png"
         except Exception:
             pass
         
