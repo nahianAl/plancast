@@ -8,31 +8,31 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install only essential system dependencies for OpenCV and other libs
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     libgl1 \
     libgomp1 \
-    libgthread-2.0-0 \
     libsm6 \
     libxext6 \
     libxrender1 \
-    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements file
+# Copy requirements
 COPY requirements.txt .
 
-# Install CPU-only PyTorch first (overrides the one in requirements.txt)
+# Create a temporary requirements file without torch/torchvision
+RUN grep -v "^torch" requirements.txt | grep -v "^torchvision" > requirements-no-torch.txt
+
+# Install CPU-only PyTorch first
 RUN pip install --no-cache-dir --timeout=100 \
     torch==2.2.0+cpu torchvision==0.17.0+cpu --index-url https://download.pytorch.org/whl/cpu
 
-# Install remaining requirements (skipping torch/torchvision since we just installed them)
-RUN pip install --no-cache-dir --timeout=100 \
-    $(grep -v "^torch" requirements.txt | grep -v "^torchvision" | grep -v "^#" | grep -v "^$")
+# Install other dependencies
+RUN pip install --no-cache-dir --timeout=100 -r requirements-no-torch.txt
 
 # Copy application code
 COPY . .
