@@ -629,8 +629,12 @@ class PlanCastValidator:
             SecurityError: If security checks fail
         """
         # 1. Check for null bytes (potential security risk)
+        # Allow null bytes in image files (JPEG, PNG) as they're part of the format
         if b'\x00' in file_bytes:
-            raise SecurityError("File contains null bytes (security risk)")
+            # Check if it's an image file first
+            if not (file_bytes.startswith(b'\xff\xd8\xff') or  # JPEG
+                   file_bytes.startswith(b'\x89PNG\r\n\x1a\n')):  # PNG
+                raise SecurityError("File contains null bytes (security risk)")
         
         # 2. Check for executable signatures
         executable_signatures = [
