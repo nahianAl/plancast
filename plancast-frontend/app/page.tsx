@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import Navbar from '@/components/common/Navbar';
+import HealthCheck from '@/components/api/HealthCheck';
 
 export default function LandingPage() {
   const [email, setEmail] = useState('');
@@ -325,6 +326,23 @@ export default function LandingPage() {
               No credit card required • Free 14-day trial
             </p>
           </motion.div>
+        </div>
+      </section>
+
+      {/* API Health Check Section */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Backend API Status
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Test the connection to our Railway-deployed backend API
+            </p>
+          </div>
+          <div className="flex justify-center">
+            <HealthCheck />
+          </div>
         </div>
       </section>
 
