@@ -1,222 +1,140 @@
-'use client';
+'use client'
 
-import { Suspense, useRef, useState, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Grid, Environment, Html } from '@react-three/drei';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
-import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Mesh } from 'three';
+import { useRef, useState, useEffect } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { OrbitControls, Environment, Grid, useGLTF, Html } from '@react-three/drei'
+import * as THREE from 'three'
 
 interface ThreeViewerProps {
-  jobId: string;
-  onModelLoad?: (model: GLTF) => void;
-  onError?: (error: string) => void;
+  modelUrl: string
+  onLoadComplete?: () => void
+  showGrid?: boolean
+  enableEditing?: boolean
 }
 
-interface ModelViewerProps {
-  url: string;
-  onLoad: (model: GLTF) => void;
-  onError: (error: string) => void;
-}
-
-// Model loading component
-function ModelViewer({ url, onLoad, onError }: ModelViewerProps) {
-  const meshRef = useRef<Mesh>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [gltf, setGltf] = useState<GLTF | null>(null);
+// Model component that loads the GLB file
+function Model({ modelUrl, onLoadComplete }: { modelUrl: string; onLoadComplete?: () => void }) {
+  const { scene } = useGLTF(modelUrl)
+  const modelRef = useRef<THREE.Group>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const loadModel = async () => {
-      try {
-        const loader = new GLTFLoader();
-        const model = await loader.loadAsync(url);
-        setGltf(model);
-        onLoad(model);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to load model';
-        setError(errorMessage);
-        onError(errorMessage);
-      }
-    };
-
-    loadModel();
-  }, [url, onLoad, onError]);
-
-  useFrame(() => {
-    if (meshRef.current) {
-      // Optional: Add subtle rotation animation
-      // meshRef.current.rotation.y += 0.001;
+    if (scene) {
+      setIsLoading(false)
+      onLoadComplete?.()
     }
-  });
+  }, [scene, onLoadComplete])
+
+  // Auto-rotate the model slightly for demo purposes
+  useFrame((state) => {
+    if (modelRef.current && !isLoading) {
+      modelRef.current.rotation.y += 0.005
+    }
+  })
+
+  // Center and scale the model
+  useEffect(() => {
+    if (scene && modelRef.current) {
+      const box = new THREE.Box3().setFromObject(scene)
+      const center = box.getCenter(new THREE.Vector3())
+      const size = box.getSize(new THREE.Vector3())
+      
+      // Center the model
+      scene.position.sub(center)
+      
+      // Scale to fit in view
+      const maxDim = Math.max(size.x, size.y, size.z)
+      const scale = 5 / maxDim
+      scene.scale.setScalar(scale)
+      
+      // Position slightly above ground
+      scene.position.y = 0
+    }
+  }, [scene])
+
+  if (isLoading) {
+    return (
+      <Html center>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Loading 3D model...</p>
+        </div>
+      </Html>
+    )
+  }
 
   if (error) {
     return (
       <Html center>
-        <div className="text-center p-4 bg-red-50 border border-red-200 rounded-lg">
-          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-          <p className="text-red-700 font-medium">Model Load Error</p>
-          <p className="text-red-600 text-sm">{error}</p>
+        <div className="text-center">
+          <p className="text-sm text-red-600 dark:text-red-400">Failed to load model</p>
         </div>
       </Html>
-    );
-  }
-
-  if (!gltf) {
-    return <LoadingSpinner />;
+    )
   }
 
   return (
     <primitive 
-      object={gltf.scene} 
-      ref={meshRef}
-      scale={[1, 1, 1]}
+      ref={modelRef}
+      object={scene} 
       position={[0, 0, 0]}
     />
-  );
-}
-
-// Loading component
-function LoadingSpinner() {
-  return (
-    <Html center>
-      <div className="text-center p-6 bg-white/80 backdrop-blur-sm rounded-lg shadow-lg">
-        <Loader2 className="w-8 h-8 text-blue-500 animate-spin mx-auto mb-3" />
-        <p className="text-gray-700 font-medium">Loading 3D Model...</p>
-        <p className="text-gray-500 text-sm">This may take a few moments</p>
-      </div>
-    </Html>
-  );
+  )
 }
 
 // Camera controls component
 function CameraControls() {
-  const [showGrid, setShowGrid] = useState(true);
-  const [showEnvironment, setShowEnvironment] = useState(true);
+  const { camera } = useThree()
+  
+  useEffect(() => {
+    // Set initial camera position
+    camera.position.set(10, 10, 10)
+    camera.lookAt(0, 0, 0)
+  }, [camera])
 
   return (
-    <div className="absolute top-4 right-4 z-10 space-y-2">
-      <Card className="w-64">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">View Controls</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowGrid(!showGrid)}
-            className="w-full justify-start"
-          >
-            {showGrid ? <Eye className="w-4 h-4 mr-2" /> : <EyeOff className="w-4 h-4 mr-2" />}
-            {showGrid ? 'Hide' : 'Show'} Grid
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowEnvironment(!showEnvironment)}
-            className="w-full justify-start"
-          >
-            {showEnvironment ? <Eye className="w-4 h-4 mr-2" /> : <EyeOff className="w-4 h-4 mr-2" />}
-            {showEnvironment ? 'Hide' : 'Show'} Environment
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
+    <OrbitControls
+      enablePan={true}
+      enableZoom={true}
+      enableRotate={true}
+      minDistance={2}
+      maxDistance={50}
+      maxPolarAngle={Math.PI / 2}
+    />
+  )
 }
 
 // Main ThreeViewer component
-export default function ThreeViewer({ jobId, onModelLoad, onError }: ThreeViewerProps) {
-  const [modelUrl, setModelUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+export default function ThreeViewer({ 
+  modelUrl, 
+  onLoadComplete, 
+  showGrid = true,
+  enableEditing = false 
+}: ThreeViewerProps) {
+  const [isModelLoaded, setIsModelLoaded] = useState(false)
+  const [hasError, setHasError] = useState(false)
 
-  useEffect(() => {
-    // Generate the GLB model URL from the backend
-    const generateModelUrl = async () => {
-      try {
-        setIsLoading(true);
-        setLoadError(null);
-        
-        // For now, we'll construct the URL based on the job ID
-        // In a real implementation, you might get this from the job status
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://plancast-api.railway.app';
-        const url = `${baseUrl}/download/${jobId}/glb`;
-        
-        setModelUrl(url);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to generate model URL';
-        setLoadError(errorMessage);
-        onError?.(errorMessage);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    generateModelUrl();
-  }, [jobId, onError]);
-
-  const handleModelLoad = (model: GLTF) => {
-    onModelLoad?.(model);
-  };
-
-  const handleModelError = (error: string) => {
-    setLoadError(error);
-    onError?.(error);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Preparing 3D viewer...</p>
-        </div>
-      </div>
-    );
+  const handleLoadComplete = () => {
+    setIsModelLoaded(true)
+    onLoadComplete?.()
   }
 
-  if (loadError) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-gray-50">
-        <div className="text-center p-6 bg-red-50 border border-red-200 rounded-lg">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <p className="text-red-700 font-medium mb-2">Failed to Load Model</p>
-          <p className="text-red-600 text-sm">{loadError}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!modelUrl) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-gray-50">
-        <div className="text-center p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          <p className="text-yellow-700 font-medium">No Model URL</p>
-          <p className="text-yellow-600 text-sm">Unable to generate model URL</p>
-        </div>
-      </div>
-    );
+  const handleError = (error: string) => {
+    setHasError(true)
+    console.error('3D model error:', error)
   }
 
   return (
-    <div className="relative w-full h-full">
+    <div className="w-full h-full relative">
       <Canvas
-        camera={{ 
-          position: [10, 10, 10], 
-          fov: 50,
-          near: 0.1,
-          far: 1000
-        }}
+        camera={{ position: [10, 10, 10], fov: 50 }}
+        shadows
         gl={{ 
           antialias: true, 
           alpha: true,
-          preserveDrawingBuffer: true
+          powerPreference: "high-performance"
         }}
-        shadows
       >
         {/* Lighting */}
         <ambientLight intensity={0.4} />
@@ -228,63 +146,99 @@ export default function ThreeViewer({ jobId, onModelLoad, onError }: ThreeViewer
           shadow-mapSize-height={2048}
         />
         <pointLight position={[-10, -10, -10]} intensity={0.5} />
-
+        
         {/* Environment */}
         <Environment preset="apartment" />
-
+        
         {/* Grid */}
-        <Grid 
-          args={[20, 20]} 
-          cellSize={1} 
-          cellThickness={0.5} 
-          cellColor="#6b7280" 
-          sectionSize={5} 
-          sectionThickness={1} 
-          sectionColor="#9ca3af" 
-          fadeDistance={25} 
-          fadeStrength={1} 
-          followCamera={false} 
-          infiniteGrid={true} 
-        />
-
-        {/* Model */}
-        <Suspense fallback={<LoadingSpinner />}>
-          <ModelViewer
-            url={modelUrl}
-            onLoad={handleModelLoad}
-            onError={handleModelError}
+        {showGrid && (
+          <Grid
+            args={[20, 20]}
+            cellSize={1}
+            cellThickness={0.5}
+            cellColor="#6b7280"
+            sectionSize={5}
+            sectionThickness={1}
+            sectionColor="#374151"
+            fadeDistance={25}
+            fadeStrength={1}
+            followCamera={false}
+            infiniteGrid={true}
           />
-        </Suspense>
-
-        {/* Camera Controls */}
-        <OrbitControls
-          enablePan={true}
-          enableZoom={true}
-          enableRotate={true}
-          minDistance={2}
-          maxDistance={50}
-          maxPolarAngle={Math.PI}
-          minPolarAngle={0}
+        )}
+        
+        {/* 3D Model */}
+        <Model 
+          modelUrl={modelUrl} 
+          onLoadComplete={handleLoadComplete}
         />
+        
+        {/* Camera Controls */}
+        <CameraControls />
       </Canvas>
-
-      {/* View Controls */}
-      <CameraControls />
-
-      {/* Instructions */}
-      <div className="absolute bottom-4 left-4 z-10">
-        <Card className="w-64">
-          <CardContent className="pt-4">
-            <p className="text-xs text-gray-600">
-              <strong>Controls:</strong><br />
-              • Left click + drag: Rotate<br />
-              • Right click + drag: Pan<br />
-              • Scroll: Zoom<br />
-              • Double click: Reset view
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      
+      {/* Loading Overlay */}
+      {!isModelLoaded && !hasError && (
+        <div className="absolute inset-0 bg-gray-100 dark:bg-gray-900 bg-opacity-75 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-300">Loading 3D model...</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Error Overlay */}
+      {hasError && (
+        <div className="absolute inset-0 bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <p className="text-red-600 dark:text-red-400 font-medium mb-2">Failed to load 3D model</p>
+            <p className="text-red-500 dark:text-red-300 text-sm">Please try refreshing the page</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Controls Overlay */}
+      {isModelLoaded && (
+        <div className="absolute bottom-4 right-4 flex flex-col space-y-2">
+          <button
+            className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            title="Reset camera"
+            onClick={() => {
+              // Reset camera position
+              const canvas = document.querySelector('canvas')
+              if (canvas) {
+                const event = new Event('resetCamera')
+                canvas.dispatchEvent(event)
+              }
+            }}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+          
+          <button
+            className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            title="Toggle grid"
+            onClick={() => {
+              // Toggle grid visibility
+              const grid = document.querySelector('[data-grid]')
+              if (grid) {
+                grid.style.display = grid.style.display === 'none' ? 'block' : 'none'
+              }
+            }}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
-  );
+  )
 }

@@ -1,378 +1,336 @@
-'use client';
+'use client'
 
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { 
-  ArrowLeft, 
-  Download, 
-  Eye, 
-  FileText, 
-  CheckCircle,
-  AlertCircle,
-  Loader2
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import ThreeViewer from '@/components/viewer/ThreeViewer';
-import { getJobStatus } from '@/lib/api/floorplan';
-import { downloadAndSave } from '@/lib/api/download';
-import { config, type ExportFormat } from '@/lib/config';
-import type { ProcessingJob } from '@/lib/api';
-import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
+import { useState, useEffect } from 'react'
+import { useParams } from 'next/navigation'
+import { ArrowLeft, Download, Eye, Settings, Share2, RotateCcw } from 'lucide-react'
+import Link from 'next/link'
+import ThreeViewer from '@/components/viewer/ThreeViewer'
+
+interface JobStatus {
+  id: string
+  status: 'processing' | 'completed' | 'failed'
+  progress: number
+  message: string
+  created_at: string
+  completed_at?: string
+  output_files?: {
+    glb?: string
+    obj?: string
+    stl?: string
+    skp?: string
+    fbx?: string
+  }
+  error?: string
+}
+
+const processingSteps = [
+  'Uploading file...',
+  'Analyzing floor plan...',
+  'Generating 3D geometry...',
+  'Creating room meshes...',
+  'Building wall structures...',
+  'Optimizing for export...',
+  'Finalizing model...'
+]
 
 export default function PreviewPage() {
-  const params = useParams();
-  const router = useRouter();
-  const jobId = params.jobId as string;
+  const params = useParams()
+  const jobId = params.jobId as string
+  
+  const [jobStatus, setJobStatus] = useState<JobStatus | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedFormat, setSelectedFormat] = useState('glb')
+  const [isExporting, setIsExporting] = useState(false)
 
-  const [job, setJob] = useState<ProcessingJob | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isDownloading, setIsDownloading] = useState<Record<ExportFormat, boolean>>({
-    glb: false,
-    obj: false,
-    stl: false,
-    skp: false,
-    fbx: false,
-    dwg: false
-  });
-  const [downloadProgress, setDownloadProgress] = useState<Record<ExportFormat, number>>({
-    glb: 0,
-    obj: 0,
-    stl: 0,
-    skp: 0,
-    fbx: 0,
-    dwg: 0
-  });
-
-  const loadJobStatus = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const jobData = await getJobStatus(jobId);
-      setJob(jobData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load job status');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [jobId]);
-
+  // Mock job status for now - will be replaced with real API calls
   useEffect(() => {
-    if (jobId) {
-      loadJobStatus();
+    // Simulate API call to get job status
+    const fetchJobStatus = async () => {
+      try {
+        // TODO: Replace with real API call
+        // const response = await fetch(`/api/jobs/${jobId}/status`)
+        // const data = await response.json()
+        
+        // Mock data for development
+        const mockStatus: JobStatus = {
+          id: jobId,
+          status: 'completed',
+          progress: 100,
+          message: 'Model generation completed successfully',
+          created_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          output_files: {
+            glb: '/api/jobs/mock/glb',
+            obj: '/api/jobs/mock/obj',
+            stl: '/api/jobs/mock/stl',
+            skp: '/api/jobs/mock/skp',
+            fbx: '/api/jobs/mock/fbx'
+          }
+        }
+        
+        setJobStatus(mockStatus)
+        setIsLoading(false)
+      } catch (err) {
+        setError('Failed to load job status')
+        setIsLoading(false)
+      }
     }
-  }, [jobId, loadJobStatus]);
 
-  const handleDownload = async (format: ExportFormat) => {
-    if (!job) return;
+    fetchJobStatus()
+  }, [jobId])
 
+  const handleExport = async (format: string) => {
+    setIsExporting(true)
     try {
-      setIsDownloading(prev => ({ ...prev, [format]: true }));
-      setDownloadProgress(prev => ({ ...prev, [format]: 0 }));
-
-      // Simulate download progress
-      const progressInterval = setInterval(() => {
-        setDownloadProgress(prev => ({
-          ...prev,
-          [format]: Math.min(prev[format] + Math.random() * 20, 90)
-        }));
-      }, 100);
-
-      await downloadAndSave(jobId, format);
+      // TODO: Implement real export functionality
+      console.log(`Exporting in ${format} format...`)
       
-      clearInterval(progressInterval);
-      setDownloadProgress(prev => ({ ...prev, [format]: 100 }));
+      // Simulate export delay
+      await new Promise(resolve => setTimeout(resolve, 2000))
       
-      // Reset progress after a delay
-      setTimeout(() => {
-        setDownloadProgress(prev => ({ ...prev, [format]: 0 }));
-      }, 2000);
-
+      // Mock download
+      const link = document.createElement('a')
+      link.href = `#` // Will be replaced with real download URL
+      link.download = `floorplan.${format}`
+      link.click()
+      
     } catch (err) {
-      console.error(`Download failed for ${format}:`, err);
-      setError(`Failed to download ${format.toUpperCase()} file`);
+      console.error('Export failed:', err)
     } finally {
-      setIsDownloading(prev => ({ ...prev, [format]: false }));
+      setIsExporting(false)
     }
-  };
-
-  const handleModelLoad = (model: GLTF) => {
-    console.log('3D model loaded successfully:', model);
-  };
-
-  const handleModelError = (error: string) => {
-    setError(`3D model error: ${error}`);
-  };
+  }
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading job details...</p>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+            <h2 className="mt-4 text-xl font-semibold text-gray-900 dark:text-white">
+              Loading your 3D model...
+            </h2>
+          </div>
         </div>
       </div>
-    );
+    )
   }
 
-  if (error) {
+  if (error || !jobStatus) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-12">
-        <div className="container mx-auto px-4 max-w-2xl">
-          <Card className="border-red-200 bg-red-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-red-700">
-                <AlertCircle className="w-5 h-5" />
-                Error Loading Job
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-red-700 mb-4">{error}</p>
-              <div className="flex gap-3">
-                <Button onClick={() => router.back()} variant="outline">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Go Back
-                </Button>
-                <Button onClick={loadJobStatus}>
-                  <Loader2 className="w-4 h-4 mr-2" />
-                  Retry
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
+              Error Loading Model
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              {error || 'Failed to load job information'}
+            </p>
+            <Link
+              href="/convert"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Upload
+            </Link>
+          </div>
         </div>
       </div>
-    );
-  }
-
-  if (!job) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-12">
-        <div className="container mx-auto px-4 max-w-2xl">
-          <Card>
-            <CardContent className="pt-6 text-center">
-              <p className="text-gray-600 mb-4">Job not found</p>
-              <Button onClick={() => router.back()} variant="outline">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Go Back
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  if (job.status !== 'completed') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-12">
-        <div className="container mx-auto px-4 max-w-2xl">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-yellow-500" />
-                Job Not Ready
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-700 mb-4">
-                This job is not yet completed. Current status: <strong>{job.status}</strong>
-              </p>
-              <div className="flex gap-3">
-                <Button onClick={() => router.back()} variant="outline">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Go Back
-                </Button>
-                <Button onClick={() => router.push(`/convert/status/${jobId}`)}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  Check Status
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-4">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                onClick={() => router.back()}
-                variant="ghost"
-                size="sm"
+            <div className="flex items-center space-x-4">
+              <Link
+                href="/convert"
+                className="inline-flex items-center text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  3D Model Preview
-                </h1>
-                <p className="text-gray-600">Job ID: {jobId}</p>
-              </div>
+                Back to Upload
+              </Link>
+              <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Job #{jobId.slice(0, 8)}
+              </h1>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="default" className="bg-green-100 text-green-800">
-                <CheckCircle className="w-3 h-3 mr-1" />
-                Completed
-              </Badge>
+            
+            <div className="flex items-center space-x-3">
+              <button className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                <Share2 className="w-5 h-5" />
+              </button>
+              <button className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                <Settings className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-6">
-        <div className="grid lg:grid-cols-4 gap-6">
-          {/* 3D Viewer */}
-          <div className="lg:col-span-3">
-            <Card className="h-[600px]">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="w-5 h-5" />
-                  3D Model Viewer
-                </CardTitle>
-                <CardDescription>
-                  Interactive 3D preview of your converted floor plan
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-0 h-full">
-                <ThreeViewer
-                  jobId={jobId}
-                  onModelLoad={handleModelLoad}
-                  onError={handleModelError}
-                />
-              </CardContent>
-            </Card>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* 3D Viewer - Main Content */}
+          <div className="lg:col-span-2">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    3D Model Preview
+                  </h2>
+                  <div className="flex items-center space-x-2">
+                    <button className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                    <button className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                      <Eye className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="h-96 lg:h-[600px] bg-gray-100 dark:bg-gray-900">
+                {jobStatus.status === 'completed' ? (
+                  <ThreeViewer 
+                    modelUrl="/api/jobs/mock/glb" // Will be replaced with real model URL
+                    onLoadComplete={() => console.log('3D model loaded')}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                      <p className="text-gray-600 dark:text-gray-300">
+                        {jobStatus.message || 'Processing your model...'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Download Panel */}
+          {/* Sidebar - Job Info & Export Options */}
           <div className="space-y-6">
-            {/* Job Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Job Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            {/* Job Status */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Job Status
+              </h3>
+              
+              <div className="space-y-4">
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Filename</p>
-                  <p className="text-sm text-gray-900">{job.filename}</p>
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-gray-600 dark:text-gray-300">Progress</span>
+                    <span className="text-gray-900 dark:text-white font-medium">
+                      {jobStatus.progress}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${jobStatus.progress}%` }}
+                    ></div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Created</p>
-                  <p className="text-sm text-gray-900">
-                    {job.created_at && new Date(job.created_at).toLocaleDateString()}
+                
+                <div className="text-sm">
+                  <p className="text-gray-600 dark:text-gray-300 mb-1">Status</p>
+                  <p className="text-gray-900 dark:text-white font-medium">
+                    {jobStatus.status === 'completed' ? '✅ Completed' : 
+                     jobStatus.status === 'processing' ? '🔄 Processing' : '❌ Failed'}
                   </p>
                 </div>
-                {job.processing_metadata && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Processing Time</p>
-                    <p className="text-sm text-gray-900">
-                      {job.processing_metadata.processing_time_seconds.toFixed(1)}s
+                
+                <div className="text-sm">
+                  <p className="text-gray-600 dark:text-gray-300 mb-1">Created</p>
+                  <p className="text-gray-900 dark:text-white">
+                    {new Date(jobStatus.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+                
+                {jobStatus.completed_at && (
+                  <div className="text-sm">
+                    <p className="text-gray-600 dark:text-gray-300 mb-1">Completed</p>
+                    <p className="text-gray-900 dark:text-white">
+                      {new Date(jobStatus.completed_at).toLocaleDateString()}
                     </p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* Export Options */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Export Options</CardTitle>
-                <CardDescription>
-                  Download your 3D model in different formats
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {Object.entries(config.exportFormats).map(([key, format]) => {
-                  const isCurrentlyDownloading = isDownloading[format];
-                  const progress = downloadProgress[format];
-                  
-                  return (
-                    <div key={format} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm font-medium">{key.toUpperCase()}</span>
-                        </div>
-                        <Button
-                          onClick={() => handleDownload(format)}
-                          disabled={isCurrentlyDownloading}
-                          size="sm"
-                          variant="outline"
-                          className="w-20"
-                        >
-                          {isCurrentlyDownloading ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Download className="w-4 h-4" />
-                          )}
-                        </Button>
+            {jobStatus.status === 'completed' && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  Export Model
+                </h3>
+                
+                <div className="space-y-3">
+                  {Object.entries(jobStatus.output_files || {}).map(([format, url]) => (
+                    <button
+                      key={format}
+                      onClick={() => handleExport(format)}
+                      disabled={isExporting}
+                      className="w-full flex items-center justify-between p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <Download className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+                        <span className="text-gray-900 dark:text-white font-medium">
+                          {format.toUpperCase()}
+                        </span>
                       </div>
-                      
-                      {isCurrentlyDownloading && progress > 0 && (
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                      )}
-                      
-                      {progress === 100 && (
-                        <div className="flex items-center gap-2 text-green-600 text-sm">
-                          <CheckCircle className="w-4 h-4" />
-                          Downloaded successfully
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {isExporting && selectedFormat === format ? 'Exporting...' : 'Download'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    💡 <strong>GLB</strong> is recommended for web viewing and 3D applications.
+                    <strong>OBJ</strong> and <strong>STL</strong> are great for 3D printing and CAD software.
+                  </p>
+                </div>
+              </div>
+            )}
 
-            {/* Model Statistics */}
-            {job.processing_metadata && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Model Statistics</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="font-medium text-gray-700">Rooms</p>
-                      <p className="text-gray-900">{job.processing_metadata.rooms_detected}</p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-700">Walls</p>
-                      <p className="text-gray-900">{job.processing_metadata.walls_generated}</p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-700">Vertices</p>
-                      <p className="text-gray-900">
-                        {job.processing_metadata.mesh_vertices.toLocaleString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-700">Faces</p>
-                      <p className="text-gray-900">
-                        {job.processing_metadata.mesh_faces.toLocaleString()}
-                      </p>
-                    </div>
+            {/* Model Information */}
+            {jobStatus.status === 'completed' && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  Model Information
+                </h3>
+                
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-300">File Type</span>
+                    <span className="text-gray-900 dark:text-white">Floor Plan</span>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-300">Scale</span>
+                    <span className="text-gray-900 dark:text-white">1:100</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-300">Dimensions</span>
+                    <span className="text-gray-900 dark:text-white">24' × 32'</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-300">Rooms</span>
+                    <span className="text-gray-900 dark:text-white">6</span>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }
