@@ -2,6 +2,16 @@
 export * from './client';
 export * from './floorplan';
 
+// Export download functions (excluding conflicting names)
+export { 
+  triggerDownload, 
+  downloadAndSave, 
+  getMimeType, 
+  getFileExtension, 
+  formatFileSize 
+} from './download';
+export { DownloadAPI } from './download';
+
 // Re-export types for convenience
 export type {
   ProcessingJob,
