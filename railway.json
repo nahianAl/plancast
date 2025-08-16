@@ -6,6 +6,27 @@
   "deploy": {
     "startCommand": "python api/main.py",
     "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10
-  }
+    "restartPolicyMaxRetries": 10,
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 300
+  },
+  "services": [
+    {
+      "name": "plancast-api",
+      "type": "web",
+      "env": {
+        "ENVIRONMENT": "production",
+        "PORT": "8000"
+      }
+    },
+    {
+      "name": "plancast-database",
+      "type": "postgresql",
+      "env": {
+        "POSTGRES_DB": "plancast",
+        "POSTGRES_USER": "plancast_user",
+        "POSTGRES_PASSWORD": "plancast_password"
+      }
+    }
+  ]
 }

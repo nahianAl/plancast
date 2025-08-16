@@ -7,6 +7,12 @@ uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 pydantic==2.5.0
 
+# Database and ORM
+sqlalchemy==2.0.23              # SQL toolkit and ORM
+psycopg2-binary==2.9.9          # PostgreSQL adapter
+alembic==1.13.1                 # Database migrations
+asyncpg==0.29.0                 # Async PostgreSQL driver
+
 # File Processing
 PyMuPDF==1.23.8               # PDF processing
 pdf2image==1.16.3             # PDF to image conversion  

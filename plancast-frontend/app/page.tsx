@@ -1,365 +1,312 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import Link from 'next/link'
 import { 
   Upload, 
-  Eye, 
+  Box, 
   Download, 
-  ArrowRight, 
-  Zap
-} from 'lucide-react';
-import { useState } from 'react';
-import Navbar from '@/components/common/Navbar';
-import HealthCheck from '@/components/api/HealthCheck';
+  Zap, 
+  Shield, 
+  Globe,
+  ArrowRight,
+  CheckCircle
+} from 'lucide-react'
 
-export default function LandingPage() {
-  const [email, setEmail] = useState('');
+const features = [
+  {
+    icon: Upload,
+    title: 'Easy Upload',
+    description: 'Drag & drop your floor plans in JPG, PNG, or PDF format. Our AI handles the rest.'
+  },
+  {
+    icon: Zap,
+    title: 'AI-Powered Conversion',
+    description: 'Advanced machine learning algorithms analyze your floor plan and generate accurate 3D models.'
+  },
+  {
+    icon: Box,
+    title: '3D Preview',
+    description: 'Interactive 3D viewer lets you explore your model from every angle before export.'
+  },
+  {
+    icon: Download,
+    title: 'Multiple Formats',
+    description: 'Export in GLB, OBJ, or STL formats for use in any 3D software or game engine.'
+  },
+  {
+    icon: Shield,
+    title: 'Secure & Private',
+    description: 'Your files are processed securely and automatically deleted after processing.'
+  },
+  {
+    icon: Globe,
+    title: 'Cloud-Based',
+    description: 'Access your projects from anywhere. No software installation required.'
+  }
+]
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: Handle email submission
-    console.log('Email submitted:', email);
-  };
+const pricingTiers = [
+  {
+    name: 'Free',
+    price: '$0',
+    description: 'Perfect for trying out PlanCast',
+    features: [
+      '3 conversions per month',
+      'Basic 3D models',
+      'Standard export formats',
+      'Community support'
+    ],
+    cta: 'Start Free',
+    popular: false
+  },
+  {
+    name: 'Pro',
+    price: '$29',
+    period: '/month',
+    description: 'For professionals and small teams',
+    features: [
+      'Unlimited conversions',
+      'High-quality 3D models',
+      'All export formats',
+      'Priority processing',
+      'Email support'
+    ],
+    cta: 'Start Pro Trial',
+    popular: true
+  },
+  {
+    name: 'Enterprise',
+    price: 'Custom',
+    description: 'For large organizations',
+    features: [
+      'Everything in Pro',
+      'Custom integrations',
+      'Dedicated support',
+      'SLA guarantees',
+      'On-premise options'
+    ],
+    cta: 'Contact Sales',
+    popular: false
+  }
+]
 
+export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-      <Navbar />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Hero Section */}
       <section className="relative overflow-hidden">
-        {/* Background Elements */}
-        <div className="absolute inset-0">
-          <div className="absolute top-0 left-0 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-          <div className="absolute bottom-0 left-1/2 w-80 h-80 bg-cyan-500/20 rounded-full blur-3xl animate-pulse delay-2000"></div>
-        </div>
-
-        <div className="relative container mx-auto px-4 pt-32 pb-20 lg:pt-40 lg:pb-32">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Left Content */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              className="text-center lg:text-left"
-            >
-              <motion.h1 
-                className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.2 }}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
+          <div className="text-center">
+            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
+              Transform Floor Plans into
+              <span className="block bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                Stunning 3D Models
+              </span>
+            </h1>
+            <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
+              Upload your floor plan and watch our AI convert it into a beautiful, interactive 3D model. 
+              Perfect for architects, real estate agents, and interior designers.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link 
+                href="/convert"
+                className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
               >
-                Transform Floor Plans into{' '}
-                <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                  3D Models
-                </span>{' '}
-                in Minutes
-              </motion.h1>
-              
-              <motion.p 
-                className="text-xl md:text-2xl text-gray-300 mb-8 max-w-2xl mx-auto lg:mx-0"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.4 }}
+                Start Converting Now
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Link>
+              <Link 
+                href="/demo"
+                className="inline-flex items-center px-8 py-4 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:border-blue-500 hover:text-blue-600 dark:hover:border-blue-400 dark:hover:text-blue-400 transition-all duration-200"
               >
-                AI-powered conversion directly in your browser. No downloads, no complexity.
-              </motion.p>
-
-              <motion.div 
-                className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.6 }}
-              >
-                <button className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold py-4 px-8 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
-                  Start Free Trial
-                  <ArrowRight className="inline ml-2 h-5 w-5" />
-                </button>
-                <button className="border border-gray-600 hover:border-gray-500 text-white font-semibold py-4 px-8 rounded-xl text-lg transition-all duration-300 backdrop-blur-sm bg-white/5">
-                  Watch Demo
-                </button>
-              </motion.div>
-            </motion.div>
-
-            {/* Right - 3D Mockup */}
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              className="relative"
-            >
-              <div className="relative w-full h-96 lg:h-[500px] bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl backdrop-blur-sm border border-white/10 shadow-2xl">
-                {/* Floating 3D Elements */}
-                <motion.div
-                  animate={{ 
-                    y: [0, -20, 0],
-                    rotateY: [0, 180, 360]
-                  }}
-                  transition={{ 
-                    duration: 6,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }}
-                  className="absolute top-1/4 left-1/4 w-16 h-16 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-lg shadow-lg"
-                />
-                <motion.div
-                  animate={{ 
-                    y: [0, 20, 0],
-                    rotateX: [0, 180, 360]
-                  }}
-                  transition={{ 
-                    duration: 8,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: 1
-                  }}
-                  className="absolute top-1/2 right-1/4 w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-400 rounded-lg shadow-lg"
-                />
-                <motion.div
-                  animate={{ 
-                    y: [0, -15, 0],
-                    rotateZ: [0, 180, 360]
-                  }}
-                  transition={{ 
-                    duration: 7,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: 2
-                  }}
-                  className="absolute bottom-1/4 left-1/3 w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-400 rounded-lg shadow-lg"
-                />
-                
-                                 {/* Center 3D Icon */}
-                 <motion.div
-                   animate={{
-                     rotateY: [0, 360],
-                     rotateX: [0, 360]
-                   }}
-                   transition={{
-                     duration: 20,
-                     repeat: Infinity,
-                     ease: "linear"
-                   }}
-                   className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
-                 >
-                   <div className="w-24 h-24 text-white/80 flex items-center justify-center">
-                     <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-lg shadow-lg transform rotate-45"></div>
-                   </div>
-                 </motion.div>
-              </div>
-            </motion.div>
+                View Demo
+              </Link>
+            </div>
           </div>
         </div>
+        
+        {/* Floating 3D elements */}
+        <div className="absolute top-20 right-10 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-20 left-10 w-40 h-40 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl"></div>
       </section>
 
-      {/* Feature Grid */}
-      <section id="features" className="py-20 px-4">
-        <div className="container mx-auto">
-          <motion.div 
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
-              Everything You Need to{' '}
-              <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                Succeed
-              </span>
+      {/* Features Section */}
+      <section className="py-20 bg-white dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              Why Choose PlanCast?
             </h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Professional-grade 3D conversion with enterprise-level features
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              Our AI-powered platform makes 3D model generation simple, fast, and accurate.
             </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: Upload,
-                title: "Upload & Convert",
-                description: "Drag and drop floor plans, AI processes in seconds",
-                gradient: "from-blue-500 to-cyan-500"
-              },
-              {
-                icon: Eye,
-                title: "Interactive 3D Preview",
-                description: "View and manipulate models in your browser",
-                gradient: "from-purple-500 to-pink-500"
-              },
-              {
-                icon: Download,
-                title: "Export Any Format",
-                description: "Download as GLB, OBJ, SKP, STL, FBX, or DWG",
-                gradient: "from-green-500 to-emerald-500"
-              }
-            ].map((feature, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: index * 0.2 }}
-                viewport={{ once: true }}
-                className="group"
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {features.map((feature, index) => (
+              <div 
+                key={feature.title}
+                className="group p-6 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-white dark:hover:bg-gray-700 transition-all duration-200 hover:shadow-lg border border-gray-200 dark:border-gray-700"
               >
-                <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 h-full transition-all duration-300 hover:bg-white/10 hover:border-white/20 hover:transform hover:scale-105">
-                  <div className={`w-16 h-16 bg-gradient-to-r ${feature.gradient} rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
-                    <feature.icon className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-white mb-4">{feature.title}</h3>
-                  <p className="text-gray-300 leading-relaxed">{feature.description}</p>
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-200">
+                  <feature.icon className="w-6 h-6 text-white" />
                 </div>
-              </motion.div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300">
+                  {feature.description}
+                </p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* How It Works */}
-      <section id="pricing" className="py-20 px-4 bg-gradient-to-r from-slate-800/50 to-blue-900/50">
-        <div className="container mx-auto">
-          <motion.div 
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
-              How It{' '}
-              <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                Works
-              </span>
+      {/* How It Works Section */}
+      <section className="py-20 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              How It Works
             </h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Three simple steps to transform your floor plans into stunning 3D models
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              Get your 3D model in just three simple steps
             </p>
-          </motion.div>
-
-          <div className="relative">
-            {/* Connecting Lines */}
-            <div className="hidden md:block absolute top-1/2 left-1/4 w-1/2 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transform -translate-y-1/2"></div>
-            
-            <div className="grid md:grid-cols-3 gap-8 relative">
-              {[
-                {
-                  step: "01",
-                  title: "Upload your floor plan",
-                  description: "JPG, PNG, or PDF",
-                  icon: Upload
-                },
-                {
-                  step: "02",
-                  title: "AI analyzes and creates 3D model",
-                  description: "Advanced neural networks process your file",
-                  icon: Zap
-                },
-                {
-                  step: "03",
-                  title: "Preview and export",
-                  description: "Your preferred format",
-                  icon: Download
-                }
-              ].map((step, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: index * 0.2 }}
-                  viewport={{ once: true }}
-                  className="text-center relative"
-                >
-                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300">
-                    <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl font-bold text-white">
-                      {step.step}
-                    </div>
-                    <div className="w-16 h-16 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-xl flex items-center justify-center mx-auto mb-6">
-                      <step.icon className="w-8 h-8 text-white" />
-                    </div>
-                    <h3 className="text-xl font-bold text-white mb-4">{step.title}</h3>
-                    <p className="text-gray-300">{step.description}</p>
-                  </div>
-                </motion.div>
-              ))}
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+                1
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                Upload Floor Plan
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Drag and drop your floor plan image or PDF. We support JPG, PNG, and PDF formats.
+              </p>
             </div>
+            
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+                2
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                AI Processing
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Our AI analyzes your floor plan and generates a detailed 3D model with walls, rooms, and dimensions.
+              </p>
+            </div>
+            
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+                3
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                Download & Use
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Preview your 3D model and download in GLB, OBJ, or STL format for your projects.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section className="py-20 bg-white dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              Simple, Transparent Pricing
+            </h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              Choose the plan that fits your needs. No hidden fees, cancel anytime.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {pricingTiers.map((tier) => (
+              <div 
+                key={tier.name}
+                className={`relative p-8 rounded-2xl border-2 transition-all duration-200 hover:shadow-xl ${
+                  tier.popular 
+                    ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20' 
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                }`}
+              >
+                {tier.popular && (
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-semibold">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                    {tier.name}
+                  </h3>
+                  <div className="flex items-baseline justify-center mb-2">
+                    <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                      {tier.price}
+                    </span>
+                    {tier.period && (
+                      <span className="text-gray-600 dark:text-gray-300 ml-1">
+                        {tier.period}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    {tier.description}
+                  </p>
+                </div>
+                
+                <ul className="space-y-3 mb-8">
+                  {tier.features.map((feature) => (
+                    <li key={feature} className="flex items-center">
+                      <CheckCircle className="w-5 h-5 text-green-500 mr-3 flex-shrink-0" />
+                      <span className="text-gray-700 dark:text-gray-300">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                
+                <Link
+                  href={tier.name === 'Enterprise' ? '/contact' : '/convert'}
+                  className={`block w-full text-center py-3 px-6 rounded-xl font-semibold transition-all duration-200 ${
+                    tier.popular
+                      ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {tier.cta}
+                </Link>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section id="about" className="py-20 px-4">
-        <div className="container mx-auto">
-          <motion.div 
-            className="text-center max-w-4xl mx-auto"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
-              Ready to revolutionize your{' '}
-              <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-                workflow?
-              </span>
-            </h2>
-            <p className="text-xl text-gray-300 mb-8">
-              Join thousands of architects, designers, and professionals who trust PlanCast
-            </p>
-
-            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="flex-1 px-6 py-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 backdrop-blur-sm focus:outline-none focus:border-blue-500 transition-all duration-300"
-                required
-              />
-              <button
-                type="submit"
-                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-semibold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
-              >
-                Start Free Trial
-              </button>
-            </form>
-            
-            <p className="text-gray-400 mt-4 text-sm">
-              No credit card required • Free 14-day trial
-            </p>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* API Health Check Section */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Backend API Status
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Test the connection to our Railway-deployed backend API
-            </p>
-          </div>
-          <div className="flex justify-center">
-            <HealthCheck />
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer id="contact" className="py-12 px-4 border-t border-white/10">
-        <div className="container mx-auto text-center">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className="h-6 w-6 text-blue-400 flex items-center justify-center">
-              <div className="w-4 h-4 bg-gradient-to-br from-blue-400 to-cyan-400 rounded transform rotate-45"></div>
-            </div>
-            <span className="text-xl font-bold text-white">PlanCast</span>
-          </div>
-          <p className="text-gray-400">
-            © 2024 PlanCast. All rights reserved.
+      <section className="py-20 bg-gradient-to-r from-blue-600 to-cyan-600">
+        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            Ready to Transform Your Floor Plans?
+          </h2>
+          <p className="text-xl text-blue-100 mb-8">
+            Join thousands of professionals who trust PlanCast for their 3D modeling needs.
           </p>
+          <Link
+            href="/convert"
+            className="inline-flex items-center px-8 py-4 bg-white text-blue-600 font-semibold rounded-xl hover:bg-gray-100 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+          >
+            Start Your First Conversion
+            <ArrowRight className="ml-2 w-5 h-5" />
+          </Link>
         </div>
-      </footer>
+      </section>
     </div>
-  );
+  )
 }
