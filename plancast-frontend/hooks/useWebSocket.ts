@@ -61,9 +61,11 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
 
       // Create new socket connection
       socketRef.current = io(url, {
-        transports: ['websocket', 'polling'],
+        path: '/socket.io',
+        transports: ['polling', 'websocket'],
         upgrade: true,
         rememberUpgrade: true,
+        withCredentials: true,
       });
 
       // Connection event handlers
