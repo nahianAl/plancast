@@ -43,13 +43,19 @@ export default function PreviewPage() {
 
 
 
+  type JobResult = {
+    model_url?: string;
+    formats?: string[];
+    output_files?: Record<string, string>;
+  };
+
   const handleExport = async (format: string) => {
     if (!isCompleted || !jobStatus?.result) return
     
     setIsExporting(true)
     try {
       // Prefer exact format URL from backend output_files mapping if available
-      const files: Record<string, string> | undefined = (jobStatus.result as any).output_files
+      const files: Record<string, string> | undefined = (jobStatus.result as JobResult).output_files
       const downloadUrl = (files && files[format]) 
         ? files[format]
         : (jobStatus.result.model_url || '')
