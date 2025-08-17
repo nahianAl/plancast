@@ -7,6 +7,10 @@ uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 pydantic==2.5.0
 
+# WebSocket Support
+python-socketio==5.10.0           # Socket.IO server
+websockets==12.0                  # WebSocket protocol support
+
 # Database and ORM
 sqlalchemy==2.0.23              # SQL toolkit and ORM
 psycopg2-binary==2.9.9          # PostgreSQL adapter

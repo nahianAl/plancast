@@ -15,9 +15,13 @@ from contextlib import contextmanager
 
 from config.settings import db_settings
 
-# Database URLs
-DATABASE_URL = db_settings.database_url
-ASYNC_DATABASE_URL = db_settings.async_database_url
+# Database URLs - with fallback for missing DATABASE_URL
+try:
+    DATABASE_URL = db_settings.database_url
+    ASYNC_DATABASE_URL = db_settings.async_database_url
+except Exception:
+    DATABASE_URL = None
+    ASYNC_DATABASE_URL = None
 
 # Engine configuration for sync operations
 SYNC_ENGINE_CONFIG = {
@@ -36,13 +40,19 @@ ASYNC_ENGINE_CONFIG = {
     "echo": os.getenv("SQL_ECHO", "false").lower() == "true",  # SQL logging
 }
 
-# Create engines
-engine = create_engine(DATABASE_URL, **SYNC_ENGINE_CONFIG)
-async_engine = create_async_engine(ASYNC_DATABASE_URL, **ASYNC_ENGINE_CONFIG)
-
-# Session factories
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-AsyncSessionLocal = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+# Create engines - only if DATABASE_URL is available
+if DATABASE_URL:
+    engine = create_engine(DATABASE_URL, **SYNC_ENGINE_CONFIG)
+    async_engine = create_async_engine(ASYNC_DATABASE_URL, **ASYNC_ENGINE_CONFIG)
+    
+    # Session factories
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    AsyncSessionLocal = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+else:
+    engine = None
+    async_engine = None
+    SessionLocal = None
+    AsyncSessionLocal = None
 
 def get_database_url() -> str:
     """Get the current database URL."""
@@ -75,6 +85,9 @@ async def test_async_connection() -> bool:
 @contextmanager
 def get_db_session() -> Generator[Session, None, None]:
     """Get a database session with automatic cleanup."""
+    if not SessionLocal:
+        raise RuntimeError("Database not available - PostgreSQL service not configured")
+    
     session = SessionLocal()
     try:
         yield session
