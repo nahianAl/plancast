@@ -31,7 +31,7 @@ if project_root not in sys.path:
 from models.data_structures import ProcessingJob, ProcessingStatus, FileFormat
 from models.database import Project, ProjectStatus, User
 from models.database_connection import get_db_session
-from models.repository import ProjectRepository, UsageRepository
+from models.repository import ProjectRepository, UsageRepository, UserRepository
 from utils.validators import PlanCastValidator, ValidationError, SecurityError
 from services.websocket_manager import websocket_manager
 
@@ -86,6 +86,10 @@ class ConvertResponse(BaseModel):
     file_size_bytes: int
     status: str = "processing"
     message: str = "File uploaded successfully. Processing started."
+class ErrorResponse(BaseModel):
+    error: str
+    message: str
+
 
 class JobStatusResponse(BaseModel):
     job_id: str
@@ -305,7 +309,15 @@ async def convert_floorplan(
             # For now, use a default user or create one
             user = session.query(User).filter(User.email == "admin@plancast.com").first()
             if not user:
-                raise HTTPException(status_code=500, detail="No admin user found")
+                # Auto-provision a default admin user if missing (for initial deployments)
+                user = UserRepository.create_user(
+                    session=session,
+                    email="admin@plancast.com",
+                    password_hash="placeholder",
+                    first_name="Admin",
+                    last_name="User",
+                    company="PlanCast"
+                )
             
             # Create project record
             project = ProjectRepository.create_project(
@@ -573,24 +585,36 @@ async def get_websocket_stats():
 # Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
-    return JSONResponse(
+    origin = request.headers.get('origin', 'https://www.getplancast.com')
+    response = JSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(
             error=exc.detail,
             message=exc.detail
         ).dict()
     )
+    # Ensure CORS headers are present even on errors
+    response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Expose-Headers"] = "*"
+    return response
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
     print(f"❌ Unhandled exception: {str(exc)}")
-    return JSONResponse(
+    origin = request.headers.get('origin', 'https://www.getplancast.com')
+    response = JSONResponse(
         status_code=500,
         content=ErrorResponse(
             error="Internal server error",
             message="An unexpected error occurred"
         ).dict()
     )
+    # Ensure CORS headers are present even on errors
+    response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Expose-Headers"] = "*"
+    return response
 
 # Mount Socket.IO to the FastAPI app
 socketio_app = websocket_manager.mount_to_app(app)
