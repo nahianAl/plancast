@@ -38,6 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
+      console.log('🔐 Login attempt:', { email, passwordLength: password.length })
+      
       // Mock user data for now
       const mockUser = {
         id: "1",
@@ -46,12 +48,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password: "$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4J/vHhH8eG" // "password123"
       }
 
+      console.log('👤 Checking email:', email, 'vs', mockUser.email)
       if (email !== mockUser.email) {
+        console.log('❌ Email mismatch')
         return false
       }
 
+      console.log('🔑 Checking password against hash...')
       const isPasswordValid = await compare(password, mockUser.password)
+      console.log('🔑 Password valid:', isPasswordValid)
+      
       if (!isPasswordValid) {
+        console.log('❌ Password validation failed')
         return false
       }
 
@@ -61,11 +69,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: mockUser.name,
       }
 
+      console.log('✅ Login successful:', userData)
       setUser(userData)
       localStorage.setItem('plancast_user', JSON.stringify(userData))
       return true
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('💥 Login error:', error)
       return false
     }
   }

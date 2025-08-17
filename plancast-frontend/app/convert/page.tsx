@@ -23,9 +23,14 @@ export default function ConvertPage() {
 
   const startConversion = useCallback(async (file: File) => {
     try {
+      console.log('🚀 Starting conversion for file:', file.name, 'Size:', file.size)
+      console.log('📡 API URL:', `${config.api.baseUrl}/convert`)
+      
       const formData = new FormData()
       formData.append('file', file)
       formData.append('export_formats', 'glb,obj,stl')
+
+      console.log('📤 Sending request to API...')
 
       // Use the configured API base URL
       const response = await fetch(`${config.api.baseUrl}/convert`, {
@@ -33,17 +38,25 @@ export default function ConvertPage() {
         body: formData
       })
 
+      console.log('📥 Response status:', response.status)
+      console.log('📥 Response ok:', response.ok)
+
       if (!response.ok) {
-        throw new Error('Conversion failed')
+        const errorText = await response.text()
+        console.error('❌ API Error:', errorText)
+        throw new Error(`Conversion failed: ${response.status} - ${errorText}`)
       }
 
       const result = await response.json()
+      console.log('✅ Conversion started successfully:', result)
       
       // Redirect to preview page
+      console.log('🔄 Redirecting to:', `/convert/preview/${result.job_id}`)
       router.push(`/convert/preview/${result.job_id}`)
 
     } catch (err) {
-      setError('Failed to start conversion. Please try again.')
+      console.error('💥 Conversion error:', err)
+      setError(`Failed to start conversion: ${err instanceof Error ? err.message : 'Unknown error'}`)
       setIsUploading(false)
     }
   }, [router])
