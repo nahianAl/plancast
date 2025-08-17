@@ -514,7 +514,16 @@ async def get_job_status(job_id: str):
         raise
     except Exception as e:
         print(f"❌ Error getting job status: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        # Return error with CORS-friendly body
+        origin = request.headers.get('origin', 'https://www.getplancast.com')
+        response = JSONResponse(
+            status_code=500,
+            content=ErrorResponse(error="Internal server error", message=str(e)).dict()
+        )
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Expose-Headers"] = "*"
+        return response
 
 @app.get("/projects")
 async def list_projects(skip: int = 0, limit: int = 100):
@@ -607,7 +616,7 @@ async def general_exception_handler(request, exc):
         status_code=500,
         content=ErrorResponse(
             error="Internal server error",
-            message="An unexpected error occurred"
+            message=str(exc) or "An unexpected error occurred"
         ).dict()
     )
     # Ensure CORS headers are present even on errors
