@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Upload, FileImage, FileText, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
-import { FileUploadZone } from '@/components/upload/FileUploadZone'
+import FileUploadZone from '@/components/upload/FileUploadZone'
 
 interface UploadedFile {
   file: File

@@ -113,9 +113,7 @@ export default function UploadPage() {
               </CardHeader>
               <CardContent>
                 <FileUploadZone
-                  onFileSelect={handleFileSelect}
-                  selectedFile={selectedFile}
-                  onClearFile={handleClearFile}
+                  onFileUpload={handleFileSelect}
                   isUploading={isUploading}
                 />
               </CardContent>

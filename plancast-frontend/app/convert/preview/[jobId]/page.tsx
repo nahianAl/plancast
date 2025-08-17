@@ -319,7 +319,7 @@ export default function PreviewPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-300">Dimensions</span>
-                    <span className="text-gray-900 dark:text-white">24' × 32'</span>
+                    <span className="text-gray-900 dark:text-white">24&apos; × 32&apos;</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-300">Rooms</span>

@@ -89,7 +89,7 @@ export default function DemoPage() {
                 
                 <div className="text-sm">
                   <p className="text-gray-600 dark:text-gray-300 mb-1">Dimensions</p>
-                  <p className="text-gray-900 dark:text-white">20' × 30'</p>
+                  <p className="text-gray-900 dark:text-white">20&apos; × 30&apos;</p>
                 </div>
                 
                 <div className="text-sm">

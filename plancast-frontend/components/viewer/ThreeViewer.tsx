@@ -227,7 +227,7 @@ export default function ThreeViewer({
             title="Toggle grid"
             onClick={() => {
               // Toggle grid visibility
-              const grid = document.querySelector('[data-grid]')
+              const grid = document.querySelector('[data-grid]') as HTMLElement
               if (grid) {
                 grid.style.display = grid.style.display === 'none' ? 'block' : 'none'
               }

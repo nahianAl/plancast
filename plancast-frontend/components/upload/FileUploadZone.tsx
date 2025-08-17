@@ -9,7 +9,7 @@ interface FileUploadZoneProps {
   error?: string | null
 }
 
-export function FileUploadZone({ onFileUpload, isUploading = false, error }: FileUploadZoneProps) {
+export default function FileUploadZone({ onFileUpload, isUploading = false, error }: FileUploadZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
