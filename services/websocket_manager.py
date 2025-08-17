@@ -31,6 +31,7 @@ class WebSocketManager:
     def __init__(self):
         # Create Socket.IO server
         self.sio = socketio.AsyncServer(
+            async_mode='asgi',
             cors_allowed_origins="*",
             logger=True,
             engineio_logger=True
@@ -343,7 +344,7 @@ class WebSocketManager:
     
     def mount_to_app(self, app: FastAPI):
         """Mount Socket.IO to FastAPI app."""
-        socketio_app = socketio.ASGIApp(self.sio, other_asgi_app=app)
+        socketio_app = socketio.ASGIApp(self.sio, other_asgi_app=app, socketio_path='socket.io')
         return socketio_app
 
 # Global WebSocket manager instance
