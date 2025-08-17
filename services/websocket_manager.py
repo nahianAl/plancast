@@ -18,6 +18,9 @@ from sqlalchemy.orm import Session
 from models.database_connection import get_db_session
 from models.repository import ProjectRepository
 from models.data_structures import ProcessingStatus
+from models.database import ProjectStatus
+from pathlib import Path
+import os
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -201,17 +204,45 @@ class WebSocketManager:
         """Send current job status to client(s)."""
         try:
             with get_db_session() as session:
-                project = ProjectRepository.get_by_job_id(session, job_id)
+                project = ProjectRepository.get_project_by_id(session, int(job_id))
                 
                 if not project:
                     return
                 
+                # Build result payload if completed
+                result_payload = None
+                if project.status == ProjectStatus.COMPLETED:
+                    exported_files = project.output_files_json or {}
+                    # Prefer GLB
+                    glb_path = exported_files.get('glb')
+                    if glb_path:
+                        filename_only = Path(glb_path).name
+                        relative_url = f"/models/{job_id}/{filename_only}"
+                        public_api_url = os.getenv('PUBLIC_API_URL', '')
+                        model_url = f"{public_api_url}{relative_url}" if public_api_url else relative_url
+                    else:
+                        # Fallback to any available format
+                        first_path = next(iter(exported_files.values()), '')
+                        filename_only = Path(first_path).name if first_path else ''
+                        relative_url = f"/models/{job_id}/{filename_only}" if first_path else ''
+                        public_api_url = os.getenv('PUBLIC_API_URL', '')
+                        model_url = f"{public_api_url}{relative_url}" if public_api_url and relative_url else relative_url
+                    result_payload = {
+                        'model_url': model_url,
+                        'formats': list(exported_files.keys()),
+                        'output_files': {
+                            fmt: (
+                                (f"{os.getenv('PUBLIC_API_URL', '')}/models/{job_id}/{Path(p).name}") if os.getenv('PUBLIC_API_URL') else f"/models/{job_id}/{Path(p).name}"
+                            ) for fmt, p in exported_files.items()
+                        }
+                    }
+
                 status_update = {
                     'jobId': job_id,
                     'status': project.status.value,
-                    'progress': project.progress or 0,
-                    'message': project.error_message if project.status == 'failed' else None,
-                    'result': project.result_data if project.status == 'completed' else None,
+                    'progress': project.progress_percent or 0,
+                    'message': project.error_message or None,
+                    'result': result_payload,
                 }
                 
                 if sid:

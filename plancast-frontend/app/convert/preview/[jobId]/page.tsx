@@ -48,8 +48,14 @@ export default function PreviewPage() {
     
     setIsExporting(true)
     try {
-      // Use the result data from WebSocket updates
-      const downloadUrl = jobStatus.result.model_url || `/api/download/${jobId}/model.${format}`
+      // Prefer exact format URL from backend output_files mapping if available
+      const files: Record<string, string> | undefined = (jobStatus.result as any).output_files
+      const downloadUrl = (files && files[format]) 
+        ? files[format]
+        : (jobStatus.result.model_url || '')
+      if (!downloadUrl) {
+        throw new Error('No download URL available')
+      }
       
       console.log(`Exporting in ${format} format from:`, downloadUrl)
       
@@ -251,7 +257,7 @@ export default function PreviewPage() {
                 </h3>
                 
                 <div className="space-y-3">
-                  {(jobStatus?.result?.formats || ['glb', 'obj', 'stl', 'skp', 'fbx']).map((format: string) => (
+                  {(jobStatus?.result?.formats || ['glb', 'obj', 'stl']).map((format: string) => (
                     <button
                       key={format}
                       onClick={() => handleExport(format)}

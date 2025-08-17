@@ -18,6 +18,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 import uvicorn
 
@@ -64,6 +65,14 @@ app.add_middleware(
 # Initialize services
 validator = PlanCastValidator()
 
+# Mount static files for generated models so the frontend can load GLB/OBJ directly
+MODELS_ROOT = Path("output/generated_models")
+MODELS_ROOT.mkdir(parents=True, exist_ok=True)
+app.mount("/models", StaticFiles(directory=str(MODELS_ROOT)), name="models")
+
+# Public base URL for building absolute asset links (set in env on prod)
+PUBLIC_API_URL = os.getenv("PUBLIC_API_URL", "")
+
 # Pydantic models
 class HealthResponse(BaseModel):
     status: str = "healthy"
@@ -87,6 +96,7 @@ class JobStatusResponse(BaseModel):
     created_at: float
     started_at: Optional[float] = None
     completed_at: Optional[float] = None
+    result: Optional[Dict[str, Any]] = None
 
 # Database dependency
 def get_db():
@@ -174,14 +184,30 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
             processing_result = future.result()
         
         # Extract result data
-        if processing_result.status == ProcessingStatus.COMPLETED and processing_result.result:
+        if processing_result.status == ProcessingStatus.COMPLETED and processing_result.exported_files:
+            # Build URLs to exported files under /models/{job_id}/
+            exported_files = {}
+            for fmt, path in (processing_result.exported_files or {}).items():
+                try:
+                    filename_only = Path(path).name
+                    relative_url = f"/models/{job_id}/{filename_only}"
+                    exported_files[fmt] = (
+                        f"{PUBLIC_API_URL}{relative_url}" if PUBLIC_API_URL else relative_url
+                    )
+                except Exception:
+                    # Fallback to raw path if something goes wrong
+                    exported_files[fmt] = path
+
+            # Choose GLB as primary model URL if available
+            glb_url = exported_files.get("glb", next(iter(exported_files.values()), ""))
+
             result_data = {
-                "model_url": f"/api/download/{job_id}/model.glb",
-                "preview_url": f"/api/download/{job_id}/preview.jpg", 
-                "formats": processing_result.result.files.keys(),
-                "processing_time": processing_result.processing_time,
-                "file_size_mb": sum(os.path.getsize(path) for path in processing_result.result.files.values()) / (1024 * 1024),
-                "output_files": processing_result.result.files
+                "model_url": glb_url,
+                "preview_url": "",
+                "formats": list(exported_files.keys()),
+                "processing_time": (processing_result.total_processing_time() or 0.0),
+                "file_size_mb": sum(os.path.getsize(p) for p in (processing_result.exported_files or {}).values()) / (1024 * 1024) if processing_result.exported_files else 0.0,
+                "output_files": exported_files,
             }
         else:
             raise Exception(f"Processing failed: {processing_result.error_message}")
@@ -194,7 +220,8 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                 current_step="completed",
                 progress_percent=100,
                 processing_time_seconds=5.0,
-                result_data=result_data
+                output_files_json=exported_files,
+                processing_metadata={"result": result_data}
             )
         
         # Send completion WebSocket update
@@ -432,15 +459,43 @@ async def get_job_status(job_id: str):
                 ProjectStatus.CANCELLED: "cancelled"
             }
             
+            # Build result payload from stored output files
+            exported_files = project.output_files_json or {}
+            result_payload = None
+            if exported_files:
+                glb_path = exported_files.get('glb')
+                if glb_path:
+                    filename_only = Path(glb_path).name
+                    relative_url = f"/models/{job_id}/{filename_only}"
+                    model_url = f"{PUBLIC_API_URL}{relative_url}" if PUBLIC_API_URL else relative_url
+                else:
+                    first_path = next(iter(exported_files.values()), '')
+                    filename_only = Path(first_path).name if first_path else ''
+                    relative_url = f"/models/{job_id}/{filename_only}" if first_path else ''
+                    model_url = f"{PUBLIC_API_URL}{relative_url}" if PUBLIC_API_URL and relative_url else relative_url
+                result_payload = {
+                    'model_url': model_url,
+                    'formats': list(exported_files.keys()),
+                    'output_files': {
+                        fmt: ((f"{PUBLIC_API_URL}/models/{job_id}/{Path(p).name}") if PUBLIC_API_URL else f"/models/{job_id}/{Path(p).name}")
+                        for fmt, p in exported_files.items()
+                    }
+                }
+
             return JobStatusResponse(
                 job_id=job_id,
                 status=status_mapping.get(project.status, "unknown"),
                 current_step=project.current_step or "upload",
                 progress_percent=project.progress_percent or 0,
-                message="Processing in progress" if project.status == ProjectStatus.PROCESSING else "Ready",
+                message=(
+                    "Processing in progress" if project.status == ProjectStatus.PROCESSING else (
+                        project.error_message or ("Completed" if project.status == ProjectStatus.COMPLETED else "Ready")
+                    )
+                ),
                 created_at=project.created_at.timestamp() if project.created_at else time.time(),
                 started_at=project.started_at.timestamp() if project.started_at else None,
-                completed_at=project.completed_at.timestamp() if project.completed_at else None
+                completed_at=project.completed_at.timestamp() if project.completed_at else None,
+                result=result_payload
             )
             
     except HTTPException:

@@ -87,20 +87,22 @@ export const useJobStatus = (options: UseJobStatusOptions) => {
     setError(null);
 
     try {
-      const response = await fetch(`/api/jobs/${jobId}/status`);
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.getplancast.com';
+      const response = await fetch(`${baseUrl}/jobs/${jobId}/status`);
       if (!response.ok) {
         throw new Error('Failed to fetch job status');
       }
 
       const data = await response.json();
+      const nowIso = new Date().toISOString();
       const status: JobStatus = {
         jobId: data.job_id,
         status: data.status,
-        progress: data.progress || 0,
+        progress: data.progress_percent || data.progress || 0,
         message: data.message,
         result: data.result,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+        createdAt: data.created_at ? new Date(data.created_at * 1000).toISOString() : nowIso,
+        updatedAt: nowIso,
       };
 
       setJobStatus(status);
