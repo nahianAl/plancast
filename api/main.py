@@ -15,7 +15,7 @@ import concurrent.futures
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -48,7 +48,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://getplancast.com",
-        "https://www.getplancast.com",
+        "https://www.getplancast.com",  # THIS IS CRITICAL
+        "http://getplancast.com", 
+        "http://www.getplancast.com",
         "http://localhost:3000",
         "http://127.0.0.1:3000"
     ],
@@ -242,6 +244,7 @@ async def health_check():
 
 @app.post("/convert", response_model=ConvertResponse)
 async def convert_floorplan(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     export_formats: str = "glb,obj,stl",
@@ -249,6 +252,11 @@ async def convert_floorplan(
 ):
     """Upload endpoint with file validation, job creation, and background processing."""
     try:
+        # Debug logging
+        origin = request.headers.get('origin', 'No origin header')
+        print(f"🔍 Received conversion request from origin: {origin}")
+        print(f"🔍 User-Agent: {request.headers.get('user-agent', 'Unknown')}")
+        print(f"🔍 Content-Type: {request.headers.get('content-type', 'Unknown')}")
         
         # Read file content
         file_content = await file.read()
@@ -309,7 +317,15 @@ async def convert_floorplan(
             file_size_bytes=len(file_content)
         )
         
-        return response_data
+        # Create JSONResponse with explicit CORS headers
+        response = JSONResponse(content=response_data.model_dump())
+        response.headers["Access-Control-Allow-Origin"] = origin if origin != 'No origin header' else "https://www.getplancast.com"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        
+        print(f"✅ Sending response with CORS headers for origin: {origin}")
+        return response
         
     except HTTPException:
         raise
