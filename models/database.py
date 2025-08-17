@@ -27,10 +27,10 @@ class UserRole(str, enum.Enum):
     MODERATOR = "moderator"
 
 class SubscriptionTier(str, enum.Enum):
-    """Subscription tiers for billing."""
-    FREE = "free"
-    PROFESSIONAL = "professional"
-    ENTERPRISE = "enterprise"
+    """Subscription tiers for billing (uppercase to match DB enum)."""
+    FREE = "FREE"
+    PROFESSIONAL = "PROFESSIONAL"
+    ENTERPRISE = "ENTERPRISE"
 
 class ProjectStatus(str, enum.Enum):
     """Project processing status."""
