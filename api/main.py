@@ -38,7 +38,7 @@ from services.websocket_manager import websocket_manager
 app = FastAPI(
     title="PlanCast API",
     description="AI-powered floor plan to 3D model conversion service",
-    version="1.0.0",
+    version="1.0.1",  # Force deployment
     docs_url="/docs",
     redoc_url="/redoc"
 )
