@@ -10,6 +10,8 @@ import os
 import sys
 import uuid
 import time
+import asyncio
+import concurrent.futures
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 
@@ -87,100 +89,93 @@ def get_db():
 async def process_floorplan_background(job_id: str, file_content: bytes, filename: str, export_formats: str):
     """Background task for processing floor plan files with real-time updates."""
     try:
-        # TODO: Integrate with FloorPlanProcessor for full 3D conversion
-        # For now, simulate processing steps with real-time updates
+        # Import the actual FloorPlanProcessor
+        from core.floorplan_processor import FloorPlanProcessor
         
-        # Step 1: AI Analysis
-        with get_db_session() as session:
-            project = ProjectRepository.get_project_by_id(session, int(job_id))
-            if project:
+        # Initialize the processor
+        processor = FloorPlanProcessor()
+        
+        # Parse export formats
+        formats_list = [fmt.strip() for fmt in export_formats.split(',') if fmt.strip()]
+        
+        # Create a progress callback function for real-time updates
+        async def progress_callback(step: str, progress: int, message: str):
+            """Callback function to send real-time updates during processing."""
+            # Update database
+            with get_db_session() as session:
                 ProjectRepository.update_project_status(
                     session, 
                     int(job_id), 
                     ProjectStatus.PROCESSING,
-                    current_step="ai_analysis",
-                    progress_percent=25
+                    current_step=step,
+                    progress_percent=progress
                 )
-        
-        # Send WebSocket update
-        await websocket_manager.broadcast_job_update(
-            job_id, 
-            "processing", 
-            25, 
-            "Analyzing floor plan with AI..."
-        )
-        await websocket_manager.broadcast_processing_progress(
-            job_id, 
-            "ai_analysis", 
-            25, 
-            "Extracting rooms, walls, and architectural features"
-        )
-        
-        # Simulate AI processing time
-        await asyncio.sleep(2)
-        
-        # Step 2: 3D Generation
-        with get_db_session() as session:
-            ProjectRepository.update_project_status(
-                session, 
-                int(job_id), 
-                ProjectStatus.PROCESSING,
-                current_step="3d_generation",
-                progress_percent=50
+            
+            # Send WebSocket updates
+            await websocket_manager.broadcast_job_update(
+                job_id, 
+                "processing", 
+                progress, 
+                message
+            )
+            await websocket_manager.broadcast_processing_progress(
+                job_id, 
+                step, 
+                progress, 
+                message
             )
         
-        # Send WebSocket update
-        await websocket_manager.broadcast_job_update(
-            job_id, 
-            "processing", 
-            50, 
-            "Generating 3D model..."
-        )
-        await websocket_manager.broadcast_processing_progress(
-            job_id, 
-            "3d_generation", 
-            50, 
-            "Creating walls, floors, and room structures"
-        )
+        # Run the actual FloorPlan processing
+        await progress_callback("ai_analysis", 10, "Starting AI analysis...")
         
-        # Simulate 3D generation time
-        await asyncio.sleep(2)
+        # Process the floor plan (this runs in a thread to avoid blocking)
         
-        # Step 3: Export Preparation
-        with get_db_session() as session:
-            ProjectRepository.update_project_status(
-                session, 
-                int(job_id), 
-                ProjectStatus.PROCESSING,
-                current_step="export_preparation",
-                progress_percent=75
+        def run_processing():
+            return processor.process_floorplan(
+                file_content=file_content,
+                filename=filename,
+                export_formats=formats_list,
+                output_dir=f"output/generated_models/{job_id}"
             )
         
-        # Send WebSocket update
-        await websocket_manager.broadcast_job_update(
-            job_id, 
-            "processing", 
-            75, 
-            "Preparing export files..."
-        )
-        await websocket_manager.broadcast_processing_progress(
-            job_id, 
-            "export_preparation", 
-            75, 
-            f"Generating {export_formats} format files"
-        )
+        # Run the processing in a thread pool to avoid blocking
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            # Submit the processing job
+            future = executor.submit(run_processing)
+            
+            # Monitor progress while processing
+            await progress_callback("ai_analysis", 25, "Analyzing floor plan with CubiCasa AI...")
+            await asyncio.sleep(1)
+            
+            await progress_callback("coordinate_scaling", 40, "Scaling coordinates and dimensions...")
+            await asyncio.sleep(1)
+            
+            await progress_callback("room_generation", 55, "Generating room meshes...")
+            await asyncio.sleep(1)
+            
+            await progress_callback("wall_generation", 70, "Creating wall structures...")
+            await asyncio.sleep(1)
+            
+            await progress_callback("building_assembly", 85, "Assembling 3D building model...")
+            await asyncio.sleep(1)
+            
+            await progress_callback("export_preparation", 95, "Preparing export files...")
+            
+            # Get the result
+            processing_result = future.result()
         
-        # Simulate export preparation time
-        await asyncio.sleep(1)
-        
-        # Step 4: Completion
-        result_data = {
-            "model_url": f"/api/download/{job_id}/model.glb",
-            "preview_url": f"/api/download/{job_id}/preview.jpg",
-            "formats": export_formats.split(','),
-            "processing_time": 5.0,
-            "file_size_mb": 2.5,
-        }
+        # Extract result data
+        if processing_result.status == ProcessingStatus.COMPLETED and processing_result.result:
+            result_data = {
+                "model_url": f"/api/download/{job_id}/model.glb",
+                "preview_url": f"/api/download/{job_id}/preview.jpg", 
+                "formats": processing_result.result.files.keys(),
+                "processing_time": processing_result.processing_time,
+                "file_size_mb": sum(os.path.getsize(path) for path in processing_result.result.files.values()) / (1024 * 1024),
+                "output_files": processing_result.result.files
+            }
+        else:
+            raise Exception(f"Processing failed: {processing_result.error_message}")
         
         with get_db_session() as session:
             ProjectRepository.update_project_status(
