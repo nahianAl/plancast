@@ -33,7 +33,7 @@ class SubscriptionTier(str, enum.Enum):
     ENTERPRISE = "ENTERPRISE"
 
 class ProjectStatus(str, enum.Enum):
-    """Project processing status."""
+    """Project processing status (lowercase to match DB enum)."""
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -102,25 +102,21 @@ class Project(Base):
     input_file_path = Column(String(500), nullable=False)
     file_size_mb = Column(Float, nullable=False)
     file_format = Column(String(10), nullable=False)  # jpg, png, pdf
-    
+
     # Processing information
-    scale_reference = Column(JSON)  # User-provided scale reference
-    processing_metadata = Column(JSON)  # AI processing results
-    current_step = Column(String(100), default="upload")
+    current_step = Column(String(100))
     progress_percent = Column(Integer, default=0)
-    
+    processing_metadata = Column(JSON)  # AI processing results or misc
+
     # Output information
-    output_files_json = Column(JSON)  # {format: file_path}
-    building_dimensions = Column(JSON)  # Width, length, area in feet
-    processing_time_seconds = Column(Float)
-    
+    output_files = Column(JSON)  # {format: file_path}
+
     # Error handling
     error_message = Column(Text)
-    warnings = Column(JSON)  # List of warning messages
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    started_at = Column(DateTime(timezone=True))
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     completed_at = Column(DateTime(timezone=True))
     
     # Relationships

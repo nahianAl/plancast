@@ -119,7 +119,6 @@ class ProjectRepository:
             input_file_path=input_file_path,
             file_size_mb=file_size_mb,
             file_format=file_format,
-            scale_reference=scale_reference
         )
         session.add(project)
         session.commit()
