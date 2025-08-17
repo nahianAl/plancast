@@ -17,10 +17,33 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create enum types (only if they don't exist)
-    op.execute("CREATE TYPE IF NOT EXISTS subscriptiontier AS ENUM ('free', 'pro', 'enterprise')")
-    op.execute("CREATE TYPE IF NOT EXISTS projectstatus AS ENUM ('pending', 'processing', 'completed', 'failed', 'cancelled')")
-    op.execute("CREATE TYPE IF NOT EXISTS actiontype AS ENUM ('upload', 'processing', 'download', 'api_call', 'export')")
+    # Create enum types (only if they don't exist) - PostgreSQL compatible way
+    op.execute("""
+        DO $$ 
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'subscriptiontier') THEN
+                CREATE TYPE subscriptiontier AS ENUM ('free', 'pro', 'enterprise');
+            END IF;
+        END $$;
+    """)
+    
+    op.execute("""
+        DO $$ 
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'projectstatus') THEN
+                CREATE TYPE projectstatus AS ENUM ('pending', 'processing', 'completed', 'failed', 'cancelled');
+            END IF;
+        END $$;
+    """)
+    
+    op.execute("""
+        DO $$ 
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'actiontype') THEN
+                CREATE TYPE actiontype AS ENUM ('upload', 'processing', 'download', 'api_call', 'export');
+            END IF;
+        END $$;
+    """)
 
     # Create users table (check if exists first)
     op.execute("""
