@@ -67,12 +67,22 @@ if __name__ == "__main__":
     if os.getenv("RAILWAY_ENVIRONMENT"):
         print("🚂 Detected Railway environment")
     
-    # Test database connection
-    if not check_database_connection():
+    try:
+        # Test database connection
+        if not check_database_connection():
+            print("❌ Database connection failed, exiting...")
+            sys.exit(1)
+        
+        # Run migrations
+        if not run_migrations():
+            print("❌ Migrations failed, exiting...")
+            sys.exit(1)
+        
+        print("🎉 All migrations completed successfully!")
+        print("🚀 Starting main application...")
+        
+    except Exception as e:
+        print(f"❌ Migration script failed with error: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
-    
-    # Run migrations
-    if not run_migrations():
-        sys.exit(1)
-    
-    print("🎉 All migrations completed successfully!")

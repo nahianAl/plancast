@@ -976,5 +976,5 @@ interface ThreeViewerProps {
 - 🔄 **Production Deployment**: Deploy complete application to Railway with PostgreSQL and WebSocket support
 - 🔄 **Authentication Enhancement**: Upgrade to NextAuth.js when compatibility issues are resolved
 - 🔄 **Additional Pages**: About, Contact, and other marketing pages
-- 🔄 **Domain Configuration**: Connect custom domain (getplancast.com)
+- d🔄 **Domain Configuration**: Connect custom domain (getplancast.com)
 - 🔄 **Environment Variables**: Configure production environment variables in Vercel
