@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Upload, FileImage, FileText, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 import FileUploadZone from '@/components/upload/FileUploadZone'
+import { NotificationBanner } from '@/components/common/NotificationBanner'
 
 interface UploadedFile {
   file: File
@@ -121,6 +122,9 @@ export default function ConvertPage() {
             Support for JPG, PNG, and PDF formats.
           </p>
         </div>
+
+        {/* Notification Banner */}
+        <NotificationBanner />
 
         {/* Upload Zone */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">

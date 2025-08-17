@@ -5,6 +5,9 @@ import { useParams } from 'next/navigation'
 import { ArrowLeft, Download, Eye, Settings, Share2, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
 import ThreeViewer from '@/components/viewer/ThreeViewer'
+import { useJobStatus } from '@/hooks/useJobStatus'
+import { JobStatusIndicator } from '@/components/common/JobStatusIndicator'
+import { Progress } from '@/components/ui/progress'
 
 interface JobStatus {
   id: string
@@ -37,63 +40,49 @@ export default function PreviewPage() {
   const params = useParams()
   const jobId = params.jobId as string
   
-  const [jobStatus, setJobStatus] = useState<JobStatus | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [selectedFormat, setSelectedFormat] = useState('glb')
   const [isExporting, setIsExporting] = useState(false)
+  
+  // Use real-time job status hook
+  const {
+    jobStatus,
+    isLoading,
+    error,
+    isCompleted,
+    isFailed,
+    isProcessing,
+    isPending,
+    progress,
+  } = useJobStatus({
+    jobId,
+    autoSubscribe: true,
+    onComplete: (result) => {
+      console.log('Job completed:', result)
+    },
+    onError: (errorMessage) => {
+      console.error('Job failed:', errorMessage)
+    },
+  })
 
-  // Mock job status for now - will be replaced with real API calls
-  useEffect(() => {
-    // Simulate API call to get job status
-    const fetchJobStatus = async () => {
-      try {
-        // TODO: Replace with real API call
-        // const response = await fetch(`/api/jobs/${jobId}/status`)
-        // const data = await response.json()
-        
-        // Mock data for development
-        const mockStatus: JobStatus = {
-          id: jobId,
-          status: 'completed',
-          progress: 100,
-          message: 'Model generation completed successfully',
-          created_at: new Date().toISOString(),
-          completed_at: new Date().toISOString(),
-          output_files: {
-            glb: '/api/jobs/mock/glb',
-            obj: '/api/jobs/mock/obj',
-            stl: '/api/jobs/mock/stl',
-            skp: '/api/jobs/mock/skp',
-            fbx: '/api/jobs/mock/fbx'
-          }
-        }
-        
-        setJobStatus(mockStatus)
-        setIsLoading(false)
-      } catch (err) {
-        setError('Failed to load job status')
-        setIsLoading(false)
-      }
-    }
 
-    fetchJobStatus()
-  }, [jobId])
 
   const handleExport = async (format: string) => {
+    if (!isCompleted || !jobStatus?.result) return
+    
     setIsExporting(true)
     try {
-      // TODO: Implement real export functionality
-      console.log(`Exporting in ${format} format...`)
+      // Use the result data from WebSocket updates
+      const downloadUrl = jobStatus.result.model_url || `/api/download/${jobId}/model.${format}`
       
-      // Simulate export delay
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      console.log(`Exporting in ${format} format from:`, downloadUrl)
       
-      // Mock download
+      // Create download link
       const link = document.createElement('a')
-      link.href = `#` // Will be replaced with real download URL
-      link.download = `floorplan.${format}`
+      link.href = downloadUrl
+      link.download = `floor-plan-3d.${format}`
+      document.body.appendChild(link)
       link.click()
+      document.body.removeChild(link)
       
     } catch (err) {
       console.error('Export failed:', err)
@@ -195,18 +184,28 @@ export default function PreviewPage() {
               </div>
               
               <div className="h-96 lg:h-[600px] bg-gray-100 dark:bg-gray-900">
-                {jobStatus.status === 'completed' ? (
+                {isCompleted && jobStatus?.result ? (
                   <ThreeViewer 
-                    modelUrl="/api/jobs/mock/glb" // Will be replaced with real model URL
+                    modelUrl={jobStatus.result.model_url || "/api/jobs/mock/glb"}
                     onLoadComplete={() => console.log('3D model loaded')}
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                      <p className="text-gray-600 dark:text-gray-300">
-                        {jobStatus.message || 'Processing your model...'}
-                      </p>
+                    <div className="text-center space-y-4">
+                      <JobStatusIndicator 
+                        status={jobStatus?.status || 'pending'}
+                        progress={progress}
+                        message={jobStatus?.message}
+                        size="lg"
+                      />
+                      {(isProcessing || isPending) && (
+                        <div className="max-w-md">
+                          <Progress value={progress} className="h-3" />
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                            {jobStatus?.message || 'Processing your model...'}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -223,49 +222,52 @@ export default function PreviewPage() {
               </h3>
               
               <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-gray-600 dark:text-gray-300">Progress</span>
-                    <span className="text-gray-900 dark:text-white font-medium">
-                      {jobStatus.progress}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${jobStatus.progress}%` }}
-                    ></div>
-                  </div>
-                </div>
+                <JobStatusIndicator 
+                  status={jobStatus?.status || 'pending'}
+                  progress={progress}
+                  message={jobStatus?.message}
+                  showProgress={true}
+                  size="md"
+                />
                 
-                <div className="text-sm">
-                  <p className="text-gray-600 dark:text-gray-300 mb-1">Status</p>
-                  <p className="text-gray-900 dark:text-white font-medium">
-                    {jobStatus.status === 'completed' ? '✅ Completed' : 
-                     jobStatus.status === 'processing' ? '🔄 Processing' : '❌ Failed'}
-                  </p>
-                </div>
-                
-                <div className="text-sm">
-                  <p className="text-gray-600 dark:text-gray-300 mb-1">Created</p>
-                  <p className="text-gray-900 dark:text-white">
-                    {new Date(jobStatus.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                
-                {jobStatus.completed_at && (
-                  <div className="text-sm">
-                    <p className="text-gray-600 dark:text-gray-300 mb-1">Completed</p>
-                    <p className="text-gray-900 dark:text-white">
-                      {new Date(jobStatus.completed_at).toLocaleDateString()}
+                <div className="text-sm space-y-3 pt-4 border-t border-gray-200 dark:border-gray-600">
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-300 mb-1">Job ID</p>
+                    <p className="text-gray-900 dark:text-white font-mono text-xs">
+                      {jobId}
                     </p>
                   </div>
-                )}
+                  
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-300 mb-1">Created</p>
+                    <p className="text-gray-900 dark:text-white">
+                      {jobStatus?.createdAt ? new Date(jobStatus.createdAt).toLocaleDateString() : 'Unknown'}
+                    </p>
+                  </div>
+                  
+                  {jobStatus?.updatedAt && (
+                    <div>
+                      <p className="text-gray-600 dark:text-gray-300 mb-1">Last Updated</p>
+                      <p className="text-gray-900 dark:text-white">
+                        {new Date(jobStatus.updatedAt).toLocaleString()}
+                      </p>
+                    </div>
+                  )}
+
+                  {isCompleted && jobStatus?.result && (
+                    <div>
+                      <p className="text-gray-600 dark:text-gray-300 mb-1">Processing Time</p>
+                      <p className="text-gray-900 dark:text-white">
+                        {jobStatus.result.processing_time || 'Unknown'}s
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Export Options */}
-            {jobStatus.status === 'completed' && (
+            {isCompleted && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                   Export Model

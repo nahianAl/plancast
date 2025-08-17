@@ -30,6 +30,7 @@ from models.database import Project, ProjectStatus, User
 from models.database_connection import get_db_session
 from models.repository import ProjectRepository, UsageRepository
 from utils.validators import PlanCastValidator, ValidationError, SecurityError
+from services.websocket_manager import websocket_manager
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -84,12 +85,12 @@ def get_db():
 
 # Background task for processing
 async def process_floorplan_background(job_id: str, file_content: bytes, filename: str, export_formats: str):
-    """Background task for processing floor plan files."""
+    """Background task for processing floor plan files with real-time updates."""
     try:
         # TODO: Integrate with FloorPlanProcessor for full 3D conversion
-        # For now, simulate processing steps
+        # For now, simulate processing steps with real-time updates
         
-        # Update project status to processing
+        # Step 1: AI Analysis
         with get_db_session() as session:
             project = ProjectRepository.get_project_by_id(session, int(job_id))
             if project:
@@ -101,10 +102,24 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                     progress_percent=25
                 )
         
+        # Send WebSocket update
+        await websocket_manager.broadcast_job_update(
+            job_id, 
+            "processing", 
+            25, 
+            "Analyzing floor plan with AI..."
+        )
+        await websocket_manager.broadcast_processing_progress(
+            job_id, 
+            "ai_analysis", 
+            25, 
+            "Extracting rooms, walls, and architectural features"
+        )
+        
         # Simulate AI processing time
         await asyncio.sleep(2)
         
-        # Update progress
+        # Step 2: 3D Generation
         with get_db_session() as session:
             ProjectRepository.update_project_status(
                 session, 
@@ -114,10 +129,24 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                 progress_percent=50
             )
         
+        # Send WebSocket update
+        await websocket_manager.broadcast_job_update(
+            job_id, 
+            "processing", 
+            50, 
+            "Generating 3D model..."
+        )
+        await websocket_manager.broadcast_processing_progress(
+            job_id, 
+            "3d_generation", 
+            50, 
+            "Creating walls, floors, and room structures"
+        )
+        
         # Simulate 3D generation time
         await asyncio.sleep(2)
         
-        # Update progress
+        # Step 3: Export Preparation
         with get_db_session() as session:
             ProjectRepository.update_project_status(
                 session, 
@@ -127,10 +156,32 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                 progress_percent=75
             )
         
+        # Send WebSocket update
+        await websocket_manager.broadcast_job_update(
+            job_id, 
+            "processing", 
+            75, 
+            "Preparing export files..."
+        )
+        await websocket_manager.broadcast_processing_progress(
+            job_id, 
+            "export_preparation", 
+            75, 
+            f"Generating {export_formats} format files"
+        )
+        
         # Simulate export preparation time
         await asyncio.sleep(1)
         
-        # Mark as completed
+        # Step 4: Completion
+        result_data = {
+            "model_url": f"/api/download/{job_id}/model.glb",
+            "preview_url": f"/api/download/{job_id}/preview.jpg",
+            "formats": export_formats.split(','),
+            "processing_time": 5.0,
+            "file_size_mb": 2.5,
+        }
+        
         with get_db_session() as session:
             ProjectRepository.update_project_status(
                 session, 
@@ -138,18 +189,37 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                 ProjectStatus.COMPLETED,
                 current_step="completed",
                 progress_percent=100,
-                processing_time_seconds=5.0
+                processing_time_seconds=5.0,
+                result_data=result_data
             )
+        
+        # Send completion WebSocket update
+        await websocket_manager.broadcast_job_update(
+            job_id, 
+            "completed", 
+            100, 
+            "3D model conversion completed successfully!",
+            result_data
+        )
             
     except Exception as e:
-        # Mark as failed
+        # Mark as failed and send error update
+        error_message = str(e)
         with get_db_session() as session:
             ProjectRepository.update_project_status(
                 session, 
                 int(job_id), 
                 ProjectStatus.FAILED,
-                error_message=str(e)
+                error_message=error_message
             )
+        
+        # Send failure WebSocket update
+        await websocket_manager.broadcast_job_update(
+            job_id, 
+            "failed", 
+            0, 
+            f"Processing failed: {error_message}"
+        )
 
 # API Endpoints
 @app.get("/health", response_model=HealthResponse)
@@ -418,6 +488,11 @@ async def get_user_stats():
         print(f"❌ Error getting user stats: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+@app.get("/websocket/stats")
+async def get_websocket_stats():
+    """Get WebSocket connection statistics."""
+    return websocket_manager.get_connection_stats()
+
 # Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
@@ -440,6 +515,9 @@ async def general_exception_handler(request, exc):
         ).dict()
     )
 
+# Mount Socket.IO to the FastAPI app
+socketio_app = websocket_manager.mount_to_app(app)
+
 # Main entry point
 if __name__ == "__main__":
     import asyncio
@@ -450,11 +528,11 @@ if __name__ == "__main__":
     print(f"🚀 Starting PlanCast API server on port {port}")
     print(f"📊 Database integration: Enabled")
     print(f"🔄 Background processing: Enabled")
+    print(f"🔌 WebSocket support: Enabled")
     
     uvicorn.run(
-        "api.main:app",
+        socketio_app,
         host="0.0.0.0",
         port=port,
-        reload=True,
         log_level="info"
     )
