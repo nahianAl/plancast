@@ -53,9 +53,10 @@ app.add_middleware(
         "http://127.0.0.1:3000"
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # This ensures OPTIONS is included
+    allow_headers=["*"],  # This allows all headers including multipart
     expose_headers=["*"],
+    max_age=3600
 )
 
 # Initialize services
@@ -237,18 +238,7 @@ async def health_check():
     
     return HealthResponse(database_status=db_status)
 
-@app.options("/convert")
-async def convert_options():
-    """Handle preflight CORS request for /convert endpoint."""
-    return JSONResponse(
-        content={"message": "OK"},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "false",
-        }
-    )
+
 
 @app.post("/convert", response_model=ConvertResponse)
 async def convert_floorplan(
@@ -319,13 +309,7 @@ async def convert_floorplan(
             file_size_bytes=len(file_content)
         )
         
-        return JSONResponse(
-            content=response_data.model_dump(),
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Credentials": "false",
-            }
-        )
+        return response_data
         
     except HTTPException:
         raise
