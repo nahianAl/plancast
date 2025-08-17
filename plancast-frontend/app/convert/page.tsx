@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Upload, FileImage, FileText, CheckCircle, Loader2 } from 'lucide-react'
 import FileUploadZone from '@/components/upload/FileUploadZone'
 import { NotificationBanner } from '@/components/common/NotificationBanner'
+import { config } from '@/lib/config'
 
 interface UploadedFile {
   file: File
@@ -26,7 +27,8 @@ export default function ConvertPage() {
       formData.append('file', file)
       formData.append('export_formats', 'glb,obj,stl')
 
-      const response = await fetch('/api/convert', {
+      // Use the configured API base URL
+      const response = await fetch(`${config.api.baseUrl}/convert`, {
         method: 'POST',
         body: formData
       })
