@@ -46,15 +46,11 @@ app = FastAPI(
 # CORS configuration for web frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://getplancast.com",
-        "https://www.getplancast.com",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000"
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],  # Temporarily allow all origins for debugging
+    allow_credentials=False,  # Can't use credentials with wildcard origin
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Initialize services
@@ -242,10 +238,10 @@ async def convert_options():
     return JSONResponse(
         content={"message": "OK"},
         headers={
-            "Access-Control-Allow-Origin": "https://www.getplancast.com",
+            "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "false",
         }
     )
 
@@ -321,8 +317,8 @@ async def convert_floorplan(
         return JSONResponse(
             content=response_data.model_dump(),
             headers={
-                "Access-Control-Allow-Origin": "https://www.getplancast.com",
-                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Credentials": "false",
             }
         )
         
