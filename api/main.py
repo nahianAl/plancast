@@ -303,26 +303,35 @@ async def convert_floorplan(
         except (ValidationError, SecurityError) as e:
             raise HTTPException(status_code=400, detail=str(e))
         
-        # Create project in database
+        # Create project in database (avoid ORM enum coercion issues)
+        from sqlalchemy import text as sql_text
         with get_db_session() as session:
-            # TODO: Get actual user ID from authentication
-            # For now, use a default user or create one
-            user = session.query(User).filter(User.email == "admin@plancast.com").first()
-            if not user:
-                # Auto-provision a default admin user if missing (for initial deployments)
-                user = UserRepository.create_user(
-                    session=session,
-                    email="admin@plancast.com",
-                    password_hash="placeholder",
-                    first_name="Admin",
-                    last_name="User",
-                    company="PlanCast"
-                )
-            
-            # Create project record
+            # Resolve admin user id via raw SQL to bypass enum mapping mismatches
+            row = session.execute(
+                sql_text("SELECT id FROM users WHERE email=:email LIMIT 1"),
+                {"email": "admin@plancast.com"}
+            ).first()
+            if row and len(row) > 0:
+                user_id = int(row[0])
+            else:
+                # Insert admin with uppercase enum to match DB
+                inserted = session.execute(
+                    sql_text(
+                        """
+                        INSERT INTO users (email, password_hash, subscription_tier, is_active, created_at)
+                        VALUES (:email, :password_hash, 'FREE', true, NOW())
+                        RETURNING id
+                        """
+                    ),
+                    {"email": "admin@plancast.com", "password_hash": "placeholder"}
+                ).first()
+                session.commit()
+                user_id = int(inserted[0])
+
+            # Create project record via repository (safe; only writes enum-free fields)
             project = ProjectRepository.create_project(
                 session=session,
-                user_id=user.id,
+                user_id=user_id,
                 filename=f"project_{uuid.uuid4().hex[:8]}",
                 original_filename=file.filename,
                 input_file_path=f"temp/uploads/{file.filename}",
@@ -330,11 +339,11 @@ async def convert_floorplan(
                 file_format=validation_result.get("file_format", "jpg"),
                 scale_reference=scale_reference
             )
-            
-            # Log usage
+
+            # Log usage (enum value comes from model; column stores as string ok)
             UsageRepository.log_usage(
                 session=session,
-                user_id=user.id,
+                user_id=user_id,
                 action_type="upload",
                 api_endpoint="/convert",
                 file_size_mb=len(file_content) / (1024 * 1024),
