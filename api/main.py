@@ -370,9 +370,18 @@ async def convert_floorplan(
         raise
     except Exception as e:
         import traceback
-        print(f"❌ Unexpected error: {str(e)}")
-        print(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        tb = traceback.format_exc()
+        print(f"❌ Unexpected error in /convert: {str(e)}")
+        print(f"Traceback: {tb}")
+        origin = request.headers.get('origin', 'https://www.getplancast.com')
+        response = JSONResponse(
+            status_code=500,
+            content=ErrorResponse(error="Internal server error", message=str(e)).dict()
+        )
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Expose-Headers"] = "*"
+        return response
 
 @app.get("/test-db")
 async def test_database_operations():
