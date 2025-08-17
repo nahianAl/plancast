@@ -17,85 +17,92 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create enum types
-    op.execute("CREATE TYPE subscriptiontier AS ENUM ('free', 'pro', 'enterprise')")
-    op.execute("CREATE TYPE projectstatus AS ENUM ('pending', 'processing', 'completed', 'failed', 'cancelled')")
-    op.execute("CREATE TYPE actiontype AS ENUM ('upload', 'processing', 'download', 'api_call', 'export')")
+    # Create enum types (only if they don't exist)
+    op.execute("CREATE TYPE IF NOT EXISTS subscriptiontier AS ENUM ('free', 'pro', 'enterprise')")
+    op.execute("CREATE TYPE IF NOT EXISTS projectstatus AS ENUM ('pending', 'processing', 'completed', 'failed', 'cancelled')")
+    op.execute("CREATE TYPE IF NOT EXISTS actiontype AS ENUM ('upload', 'processing', 'download', 'api_call', 'export')")
 
-    # Create users table
-    op.create_table('users',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('email', sa.String(length=255), nullable=False),
-        sa.Column('password_hash', sa.String(length=255), nullable=False),
-        sa.Column('first_name', sa.String(length=100), nullable=True),
-        sa.Column('last_name', sa.String(length=100), nullable=True),
-        sa.Column('company', sa.String(length=200), nullable=True),
-        sa.Column('subscription_tier', postgresql.ENUM('free', 'pro', 'enterprise', name='subscriptiontier'), nullable=False),
-        sa.Column('api_key', sa.String(length=255), nullable=True),
-        sa.Column('is_active', sa.Boolean(), nullable=False),
-        sa.Column('is_verified', sa.Boolean(), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.Column('updated_at', sa.DateTime(), nullable=False),
-        sa.Column('last_login', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
-    op.create_index(op.f('ix_users_api_key'), 'users', ['api_key'], unique=True)
+    # Create users table (check if exists first)
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            first_name VARCHAR(100),
+            last_name VARCHAR(100),
+            company VARCHAR(200),
+            subscription_tier subscriptiontier NOT NULL DEFAULT 'free',
+            api_key VARCHAR(255),
+            is_active BOOLEAN NOT NULL DEFAULT true,
+            is_verified BOOLEAN NOT NULL DEFAULT false,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            last_login TIMESTAMP
+        )
+    """)
+    
+    # Create indexes for users table
+    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users (email)")
+    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_api_key ON users (api_key)")
 
-    # Create projects table
-    op.create_table('projects',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('user_id', sa.Integer(), nullable=False),
-        sa.Column('filename', sa.String(length=255), nullable=False),
-        sa.Column('original_filename', sa.String(length=255), nullable=False),
-        sa.Column('input_file_path', sa.String(length=500), nullable=False),
-        sa.Column('file_size_mb', sa.Float(), nullable=False),
-        sa.Column('file_format', sa.String(length=10), nullable=False),
-        sa.Column('status', postgresql.ENUM('pending', 'processing', 'completed', 'failed', 'cancelled', name='projectstatus'), nullable=False),
-        sa.Column('current_step', sa.String(length=100), nullable=True),
-        sa.Column('progress_percent', sa.Integer(), nullable=False),
-        sa.Column('output_files', sa.JSON(), nullable=True),
-        sa.Column('processing_metadata', sa.JSON(), nullable=True),
-        sa.Column('error_message', sa.Text(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.Column('updated_at', sa.DateTime(), nullable=False),
-        sa.Column('completed_at', sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_projects_user_id'), 'projects', ['user_id'])
-    op.create_index(op.f('ix_projects_status'), 'projects', ['status'])
+    # Create projects table (using raw SQL for better control)
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS projects (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            filename VARCHAR(255) NOT NULL,
+            original_filename VARCHAR(255) NOT NULL,
+            input_file_path VARCHAR(500) NOT NULL,
+            file_size_mb FLOAT NOT NULL,
+            file_format VARCHAR(10) NOT NULL,
+            status projectstatus NOT NULL DEFAULT 'pending',
+            current_step VARCHAR(100),
+            progress_percent INTEGER NOT NULL DEFAULT 0,
+            output_files JSON,
+            processing_metadata JSON,
+            error_message TEXT,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            completed_at TIMESTAMP
+        )
+    """)
+    
+    # Create indexes for projects table
+    op.execute("CREATE INDEX IF NOT EXISTS ix_projects_user_id ON projects (user_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_projects_status ON projects (status)")
 
     # Create usage_logs table
-    op.create_table('usage_logs',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('user_id', sa.Integer(), nullable=False),
-        sa.Column('project_id', sa.Integer(), nullable=True),
-        sa.Column('action_type', postgresql.ENUM('upload', 'processing', 'download', 'api_call', 'export', name='actiontype'), nullable=False),
-        sa.Column('api_endpoint', sa.String(length=200), nullable=False),
-        sa.Column('file_size_mb', sa.Float(), nullable=True),
-        sa.Column('processing_time_seconds', sa.Float(), nullable=True),
-        sa.Column('request_metadata', sa.JSON(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-        sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_usage_logs_user_id'), 'usage_logs', ['user_id'])
-    op.create_index(op.f('ix_usage_logs_created_at'), 'usage_logs', ['created_at'])
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS usage_logs (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            project_id INTEGER REFERENCES projects(id),
+            action_type actiontype NOT NULL,
+            api_endpoint VARCHAR(200) NOT NULL,
+            file_size_mb FLOAT,
+            processing_time_seconds FLOAT,
+            request_metadata JSON,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+    """)
+    
+    # Create indexes for usage_logs table
+    op.execute("CREATE INDEX IF NOT EXISTS ix_usage_logs_user_id ON usage_logs (user_id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_usage_logs_created_at ON usage_logs (created_at)")
 
-    # Insert default admin user
+    # Insert default admin user (only if not exists)
     op.execute("""
         INSERT INTO users (email, password_hash, first_name, last_name, company, subscription_tier, is_active, is_verified, created_at, updated_at)
-        VALUES ('admin@plancast.com', '$2b$12$dummy.hash.for.admin', 'Admin', 'User', 'PlanCast', 'enterprise', true, true, NOW(), NOW())
+        SELECT 'admin@plancast.com', '$2b$12$dummy.hash.for.admin', 'Admin', 'User', 'PlanCast', 'enterprise', true, true, NOW(), NOW()
+        WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@plancast.com')
     """)
 
 
 def downgrade() -> None:
     # Drop tables
-    op.drop_table('usage_logs')
-    op.drop_table('projects')
-    op.drop_table('users')
+    op.execute("DROP TABLE IF EXISTS usage_logs CASCADE")
+    op.execute("DROP TABLE IF EXISTS projects CASCADE")
+    op.execute("DROP TABLE IF EXISTS users CASCADE")
     
     # Drop enum types
     op.execute("DROP TYPE IF EXISTS actiontype")
