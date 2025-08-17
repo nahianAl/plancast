@@ -1,7 +1,7 @@
 export const config = {
   // API Configuration
   api: {
-    baseUrl: process.env.NEXT_PUBLIC_API_URL || 'https://plancast-api.railway.app',
+    baseUrl: process.env.NEXT_PUBLIC_API_URL || 'https://api.getplancast.com',
     timeout: 30000, // 30 seconds
     retryAttempts: 3,
     retryDelay: 1000, // 1 second

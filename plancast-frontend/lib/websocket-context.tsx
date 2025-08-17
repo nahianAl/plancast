@@ -73,7 +73,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     subscribeToJob,
     unsubscribeFromJob,
   } = useWebSocket({
-    url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000',
+    url: process.env.NEXT_PUBLIC_WS_URL || 'wss://api.getplancast.com',
     autoConnect: !!user, // Only connect when user is authenticated
     onConnect: handleConnect,
     onMessage: handleMessage,

@@ -29,7 +29,7 @@ interface UseWebSocketOptions {
 
 export const useWebSocket = (options: UseWebSocketOptions = {}) => {
   const {
-    url = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000',
+    url = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.getplancast.com',
     autoConnect = true,
     onMessage,
     onJobUpdate,
