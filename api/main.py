@@ -236,6 +236,19 @@ async def health_check():
     
     return HealthResponse(database_status=db_status)
 
+@app.options("/convert")
+async def convert_options():
+    """Handle preflight CORS request for /convert endpoint."""
+    return JSONResponse(
+        content={"message": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "https://www.getplancast.com",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
+
 @app.post("/convert", response_model=ConvertResponse)
 async def convert_floorplan(
     background_tasks: BackgroundTasks,
@@ -299,10 +312,18 @@ async def convert_floorplan(
             export_formats
         )
         
-        return ConvertResponse(
+        response_data = ConvertResponse(
             job_id=str(project.id),
             filename=file.filename,
             file_size_bytes=len(file_content)
+        )
+        
+        return JSONResponse(
+            content=response_data.model_dump(),
+            headers={
+                "Access-Control-Allow-Origin": "https://www.getplancast.com",
+                "Access-Control-Allow-Credentials": "true",
+            }
         )
         
     except HTTPException:
