@@ -46,8 +46,13 @@ app = FastAPI(
 # CORS configuration for web frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Temporarily allow all origins for debugging
-    allow_credentials=False,  # Can't use credentials with wildcard origin
+    allow_origins=[
+        "https://getplancast.com",
+        "https://www.getplancast.com",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ],
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"],
