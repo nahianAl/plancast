@@ -12,7 +12,7 @@ interface WebSocketContextType {
   jobUpdates: Map<string, JobStatusUpdate>;
   subscribeToJob: (jobId: string) => void;
   unsubscribeFromJob: (jobId: string) => void;
-  sendMessage: (type: string, data: any) => boolean;
+  sendMessage: (type: string, data: Record<string, unknown>) => boolean;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);

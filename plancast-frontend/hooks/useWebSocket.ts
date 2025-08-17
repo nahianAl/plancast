@@ -5,7 +5,7 @@ import { io, Socket } from 'socket.io-client';
 
 export interface WebSocketMessage {
   type: string;
-  data: any;
+  data: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -14,7 +14,7 @@ export interface JobStatusUpdate {
   status: 'pending' | 'processing' | 'completed' | 'failed';
   progress: number;
   message?: string;
-  result?: any;
+  result?: Record<string, unknown>;
 }
 
 interface UseWebSocketOptions {
@@ -42,7 +42,7 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
   const [connectionError, setConnectionError] = useState<Error | null>(null);
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
   const socketRef = useRef<Socket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
 
   const maxReconnectAttempts = 5;
@@ -107,7 +107,7 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
       socketRef.current.on('message', (data) => {
         const message: WebSocketMessage = {
           type: 'message',
-          data,
+          data: data as Record<string, unknown>,
           timestamp: new Date().toISOString(),
         };
         setLastMessage(message);
@@ -118,7 +118,7 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
       socketRef.current.on('job_status', (data: JobStatusUpdate) => {
         const message: WebSocketMessage = {
           type: 'job_status',
-          data,
+          data: data as unknown as Record<string, unknown>,
           timestamp: new Date().toISOString(),
         };
         setLastMessage(message);
@@ -130,7 +130,7 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
       socketRef.current.on('processing_progress', (data) => {
         const message: WebSocketMessage = {
           type: 'processing_progress',
-          data,
+          data: data as Record<string, unknown>,
           timestamp: new Date().toISOString(),
         };
         setLastMessage(message);
@@ -160,7 +160,7 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
     reconnectAttemptsRef.current = 0;
   }, []);
 
-  const sendMessage = useCallback((type: string, data: any) => {
+  const sendMessage = useCallback((type: string, data: Record<string, unknown>) => {
     if (socketRef.current?.connected) {
       socketRef.current.emit(type, data);
       return true;

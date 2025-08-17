@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { ArrowLeft, Download, Eye, Settings, Share2, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
@@ -9,38 +9,15 @@ import { useJobStatus } from '@/hooks/useJobStatus'
 import { JobStatusIndicator } from '@/components/common/JobStatusIndicator'
 import { Progress } from '@/components/ui/progress'
 
-interface JobStatus {
-  id: string
-  status: 'processing' | 'completed' | 'failed'
-  progress: number
-  message: string
-  created_at: string
-  completed_at?: string
-  output_files?: {
-    glb?: string
-    obj?: string
-    stl?: string
-    skp?: string
-    fbx?: string
-  }
-  error?: string
-}
 
-const processingSteps = [
-  'Uploading file...',
-  'Analyzing floor plan...',
-  'Generating 3D geometry...',
-  'Creating room meshes...',
-  'Building wall structures...',
-  'Optimizing for export...',
-  'Finalizing model...'
-]
+
+
 
 export default function PreviewPage() {
   const params = useParams()
   const jobId = params.jobId as string
   
-  const [selectedFormat, setSelectedFormat] = useState('glb')
+  const [selectedFormat] = useState('glb')
   const [isExporting, setIsExporting] = useState(false)
   
   // Use real-time job status hook
@@ -49,7 +26,7 @@ export default function PreviewPage() {
     isLoading,
     error,
     isCompleted,
-    isFailed,
+
     isProcessing,
     isPending,
     progress,
@@ -274,7 +251,7 @@ export default function PreviewPage() {
                 </h3>
                 
                 <div className="space-y-3">
-                  {Object.entries(jobStatus.output_files || {}).map(([format, url]) => (
+                  {(jobStatus?.result?.formats || ['glb', 'obj', 'stl', 'skp', 'fbx']).map((format: string) => (
                     <button
                       key={format}
                       onClick={() => handleExport(format)}

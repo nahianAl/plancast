@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Upload, FileImage, FileText, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
+import { Upload, FileImage, FileText, CheckCircle, Loader2 } from 'lucide-react'
 import FileUploadZone from '@/components/upload/FileUploadZone'
 import { NotificationBanner } from '@/components/common/NotificationBanner'
 
@@ -19,6 +19,32 @@ export default function ConvertPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+
+  const startConversion = useCallback(async (file: File) => {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('export_formats', 'glb,obj,stl')
+
+      const response = await fetch('/api/convert', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        throw new Error('Conversion failed')
+      }
+
+      const result = await response.json()
+      
+      // Redirect to preview page
+      router.push(`/convert/preview/${result.job_id}`)
+
+    } catch (err) {
+      setError('Failed to start conversion. Please try again.')
+      setIsUploading(false)
+    }
+  }, [router])
 
   const handleFileUpload = useCallback(async (file: File) => {
     setError(null)
@@ -66,33 +92,7 @@ export default function ConvertPage() {
       setIsUploading(false)
       setUploadProgress(0)
     }
-  }, [])
-
-  const startConversion = async (file: File) => {
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('export_formats', 'glb,obj,stl')
-
-      const response = await fetch('/api/convert', {
-        method: 'POST',
-        body: formData
-      })
-
-      if (!response.ok) {
-        throw new Error('Conversion failed')
-      }
-
-      const result = await response.json()
-      
-      // Redirect to preview page
-      router.push(`/convert/preview/${result.job_id}`)
-
-    } catch (err) {
-      setError('Failed to start conversion. Please try again.')
-      setIsUploading(false)
-    }
-  }
+  }, [startConversion])
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes'
