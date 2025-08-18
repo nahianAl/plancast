@@ -245,6 +245,9 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                 
                 # Extract result data
                 if processing_result.status == ProcessingStatus.COMPLETED and processing_result.exported_files:
+                    print(f"🔍 Processing completed successfully for job {job_id}")
+                    print(f"🔍 Exported files from processing: {processing_result.exported_files}")
+                    
                     # Build URLs to exported files under /models/{job_id}/
                     exported_files = {}
                     for fmt, path in (processing_result.exported_files or {}).items():
@@ -254,7 +257,9 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                             exported_files[fmt] = (
                                 f"{PUBLIC_API_URL}{relative_url}" if PUBLIC_API_URL else relative_url
                             )
-                        except Exception:
+                            print(f"🔍 Built URL for {fmt}: {exported_files[fmt]}")
+                        except Exception as e:
+                            print(f"❌ Error building URL for {fmt}: {e}")
                             # Fallback to raw path if something goes wrong
                             exported_files[fmt] = path
 
@@ -269,10 +274,17 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                         "file_size_mb": sum(os.path.getsize(p) for p in (processing_result.exported_files or {}).values()) / (1024 * 1024) if processing_result.exported_files else 0.0,
                         "output_files": exported_files,
                     }
+                    
+                    print(f"🔍 Final exported_files for database: {exported_files}")
+                    print(f"🔍 Result data: {result_data}")
                 else:
+                    print(f"❌ Processing failed or no exported files for job {job_id}")
+                    print(f"🔍 Status: {processing_result.status}")
+                    print(f"🔍 Exported files: {processing_result.exported_files}")
                     raise Exception(f"Processing failed: {processing_result.error_message}")
                 
                 with get_db_session() as session:
+                    print(f"🔍 Updating database for job {job_id} with output_files: {exported_files}")
                     ProjectRepository.update_project_status(
                         session, 
                         int(job_id), 
@@ -280,9 +292,10 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                         current_step="completed",
                         progress_percent=100,
                         processing_time_seconds=processing_result.total_processing_time() or 0.0,
-                        output_files_json=exported_files,
+                        output_files=exported_files,
                         processing_metadata={"result": result_data}
                     )
+                    print(f"✅ Database updated successfully for job {job_id}")
                 
                 # Send completion WebSocket update
                 print(f"🔍 Sending completion WebSocket update for job {job_id}")
