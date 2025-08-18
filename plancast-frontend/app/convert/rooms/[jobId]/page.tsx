@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, CheckCircle, AlertCircle, Info } from 'lucide-react';
@@ -56,13 +56,7 @@ export default function RoomSelectionPage() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [validationWarning, setValidationWarning] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (jobId) {
-      loadRoomAnalysis();
-    }
-  }, [jobId]);
-
-  const loadRoomAnalysis = async () => {
+  const loadRoomAnalysis = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -80,13 +74,20 @@ export default function RoomSelectionPage() {
       // Set image URL for display
       setImageUrl(`/api/jobs/${jobId}/image`); // This endpoint needs to be created
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load room analysis:', err);
-      setError(err.response?.data?.message || 'Failed to load room analysis');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load room analysis';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [jobId]);
+
+  useEffect(() => {
+    if (jobId) {
+      loadRoomAnalysis();
+    }
+  }, [jobId, loadRoomAnalysis]);
 
   const handleRoomSelect = (room: RoomSuggestion) => {
     setSelectedRoom(room);
@@ -122,9 +123,10 @@ export default function RoomSelectionPage() {
       // Navigate to preview page
       router.push(`/convert/preview/${jobId}`);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to submit scale input:', err);
-      setError(err.response?.data?.message || 'Failed to submit scale input');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit scale input';
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
