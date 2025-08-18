@@ -17,6 +17,7 @@ Date: 2025-08-18
 - Job creation and admin provisioning:
   - Initially auto-provisioned `admin@plancast.com` if missing; then switched to raw SQL to insert/select admin with correct enum casing to avoid ORM/enum mismatches.
   - Captured `project_id` before closing the DB session in `/convert` to prevent SQLAlchemy detached instance refresh errors when scheduling background tasks and building responses.
+  - Fixed `/jobs/{job_id}/status` to accept `request`, sanitize `job_id` (handles encodings like `%7B6%7D`), and use the correct `project.output_files` field. Returns consistent JSON with CORS headers on errors.
 
 ### WebSocket (Socket.IO)
 - Server configuration (`services/websocket_manager.py`):

@@ -474,11 +474,18 @@ async def test_database_operations():
         raise HTTPException(status_code=500, detail=error_msg)
 
 @app.get("/jobs/{job_id}/status", response_model=JobStatusResponse)
-async def get_job_status(job_id: str):
+async def get_job_status(job_id: str, request: Request):
     """Get job status from database."""
     try:
+        # Sanitize job id (handle cases like "%7B6%7D")
+        import re as _re
+        cleaned_job_id = _re.sub(r"[^0-9]", "", job_id or "")
+        if not cleaned_job_id:
+            raise HTTPException(status_code=400, detail="Invalid job id")
+        job_int = int(cleaned_job_id)
+
         with get_db_session() as session:
-            project = ProjectRepository.get_project_by_id(session, int(job_id))
+            project = ProjectRepository.get_project_by_id(session, job_int)
             
             if not project:
                 raise HTTPException(status_code=404, detail="Job not found")
@@ -493,7 +500,7 @@ async def get_job_status(job_id: str):
             }
             
             # Build result payload from stored output files
-            exported_files = project.output_files_json or {}
+            exported_files = project.output_files or {}
             result_payload = None
             if exported_files:
                 glb_path = exported_files.get('glb')
@@ -510,13 +517,13 @@ async def get_job_status(job_id: str):
                     'model_url': model_url,
                     'formats': list(exported_files.keys()),
                     'output_files': {
-                        fmt: ((f"{PUBLIC_API_URL}/models/{job_id}/{Path(p).name}") if PUBLIC_API_URL else f"/models/{job_id}/{Path(p).name}")
+                        fmt: ((f"{PUBLIC_API_URL}/models/{job_int}/{Path(p).name}") if PUBLIC_API_URL else f"/models/{job_int}/{Path(p).name}")
                         for fmt, p in exported_files.items()
                     }
                 }
 
             return JobStatusResponse(
-                job_id=job_id,
+                job_id=str(job_int),
                 status=status_mapping.get(project.status, "unknown"),
                 current_step=project.current_step or "upload",
                 progress_percent=project.progress_percent or 0,
