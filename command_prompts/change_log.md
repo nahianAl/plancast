@@ -79,6 +79,84 @@ Date: 2025-08-18
 - Generated models are served under `/models/{job_id}/...` for preview and download.
 
 
+### Latest Updates (2025-08-18) - FACE WINDING ORDER FIXES 🎯
+
+**🔧 CRITICAL FIX: Face Winding Order - From 3D Wireframes to Solid 3D Geometry**
+- **Root Cause Identified**: Incorrect face winding order was causing 3D wireframes/borders instead of solid geometry
+- **Face Orientation Fixed**: Corrected all face winding orders to ensure consistent counter-clockwise orientation when viewed from outside
+- **Solid 3D Models**: Now generates proper solid 3D geometry with visible surfaces instead of wireframes
+- **Enhanced Debugging**: Added comprehensive mesh validation and debugging to track mesh properties
+
+**Technical Implementation Details:**
+
+**1. Room Generator - Fixed Face Winding Order (`services/room_generator.py`):**
+- **Before**: Inconsistent face winding order causing invisible or wireframe surfaces
+- **After**: Consistent counter-clockwise winding when viewed from outside
+  - ✅ **Floor**: Proper winding for bottom surface (viewed from below)
+  - ✅ **Ceiling**: Proper winding for top surface (viewed from above)
+  - ✅ **4 Walls**: Proper winding for all wall surfaces (viewed from outside)
+- **Face Structure**: All 12 triangular faces now have correct orientation
+- **Visual Result**: Solid 3D rooms with visible walls, floors, and ceilings
+
+**2. Wall Generator - Fixed Face Winding Order (`services/wall_generator.py`):**
+- **Before**: Inconsistent face winding order causing wireframe appearance
+- **After**: Consistent counter-clockwise winding for all wall faces
+  - ✅ **Bottom Face**: Proper winding for bottom surface
+  - ✅ **Top Face**: Proper winding for top surface
+  - ✅ **4 Side Faces**: Proper winding for all wall sides
+- **Face Structure**: All 12 triangular faces now have correct orientation
+- **Visual Result**: Solid 3D walls with visible surfaces
+
+**3. Enhanced Mesh Debugging (`services/mesh_exporter.py`):**
+- **Mesh Validation**: Added comprehensive logging for mesh properties
+- **Volume Check**: Verify meshes have proper volume (not zero or negative)
+- **Watertight Check**: Ensure meshes are properly closed (no holes)
+- **Winding Consistency**: Verify face orientations are consistent
+- **Bounds Logging**: Track mesh bounding boxes and dimensions
+
+**Bug Fixes Resolved:**
+- **3D Wireframes**: Fixed issue where 3D models appeared as wireframes/borders only
+- **Invisible Surfaces**: Resolved faces being invisible due to incorrect winding order
+- **Top-Down View Issue**: Fixed top-down view showing only boundaries instead of solid geometry
+- **Surface Rendering**: Corrected surface rendering for proper 3D visualization
+- **Export Quality**: Improved 3D model export quality for GLB/OBJ/STL files
+
+**Expected Results:**
+- **Solid 3D Models**: GLB/OBJ/STL files now contain solid geometry with visible surfaces
+- **Proper Rendering**: 3D models render as solid objects instead of wireframes
+- **Visible Surfaces**: All walls, floors, and ceilings are properly visible
+- **3D Viewer Compatibility**: Models display correctly in all 3D viewers and CAD software
+- **Export Functionality**: Downloadable files are solid 3D models suitable for 3D printing
+
+**Performance Impact:**
+- **Better Visual Quality**: Significantly improved 3D model appearance
+- **Proper Geometry**: Solid geometry instead of wireframe representation
+- **Enhanced Debugging**: Better tracking of mesh properties and issues
+- **Export Quality**: Higher quality 3D files for professional use
+
+**Deployment Status:**
+- ✅ **Room Generator**: Face winding fixed and deployed
+- ✅ **Wall Generator**: Face winding fixed and deployed
+- ✅ **Mesh Debugging**: Enhanced and deployed
+- ✅ **3D Geometry**: Solid geometry now working
+
+**Previous Updates:**
+- Status endpoint: accepts `request`, sanitizes `job_id` (handles encoded `{6}` as `%7B6%7D`), uses `project.output_files`, and returns CORS-friendly JSON on errors.
+- Subscription tier enum alignment: `SubscriptionTier` now matches DB values exactly (`free`/`pro`/`enterprise`); admin bootstrap inserts with `free`.
+- Detached SQLAlchemy instance: capture `project_id` before session closes in `/convert` to prevent refresh errors when scheduling background tasks and building responses.
+- Successful conversion kickoff: `/convert` returns 200, job is created, redirect to preview works, and WebSocket connects for live updates.
+- Runtime dependency fix: added `libmagic1` and `file` packages in `Dockerfile` to satisfy `python-magic`/MIME detection (`failed to find libmagic`).
+- Settings additions: defined `GENERATED_MODELS_DIR`, `USE_Y_UP_FOR_WEB`, and `WEB_OPTIMIZED_GLB` in `config/settings.py` so mesh exporter imports resolve in production.
+- Status endpoint: removed reference to non-existent `started_at` on `Project` when building response.
+- CubiCasa model loading: detect Git LFS pointer files and force re-download of the real model in `CubiCasaService._ensure_model_available()`; mitigates `invalid load key, 'v'` pickle errors.
+- CubiCasa fallback: if download fails or model missing on deploy, copy bundled model from `assets/models` when available; otherwise automatically initialize placeholder model to keep pipeline running (avoids failing jobs on download restrictions).
+- CubiCasa model URL override: service now reads `CUBICASA_MODEL_URL` to download the model from a binary-safe public URL (e.g., GitHub Release/S3/Google Drive `uc?export=download&id=...`).
+- Repository alignment: removed `started_at` usage from `ProjectRepository.update_project_status` to match DB schema; only `completed_at` is set on completion/failure.
+- Small image handling: relaxed strict validation; images under 512px are now auto-upscaled to the minimum dimension during processing (`services/file_processor.py`).
+- Processing fix: pass `job_id` to `CubiCasaService.process_image` from `FloorPlanProcessor` to satisfy the required parameter (`core/floorplan_processor.py`).
+- Room/wall validation: adjusted to allow non-negative room offsets (`x_offset_feet`, `y_offset_feet >= 0`) while keeping dimensions (`width_feet`, `length_feet`, `area_sqft`) strictly positive (`services/room_generator.py`, `services/wall_generator.py`).
+
+
 ### Latest Updates (2025-08-18) - 3D GENERATION PIPELINE FIXES 🏗️
 
 **🔧 CRITICAL FIX: 3D Generation Pipeline - From 2D Boundaries to Proper 3D Models**
