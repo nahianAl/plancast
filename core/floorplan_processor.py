@@ -108,7 +108,7 @@ class FloorPlanProcessor:
             job.progress_percent = 25
             logger.info(f"🤖 Step 2: Running CubiCasa5K AI analysis")
             
-            cubicasa_output = self.cubicasa_service.process_image(file_content)
+            cubicasa_output = self.cubicasa_service.process_image(file_content, job.job_id)
             job.cubicasa_output = cubicasa_output
             
             logger.info(f"✅ AI processing completed: {len(cubicasa_output.room_bounding_boxes)} rooms detected")

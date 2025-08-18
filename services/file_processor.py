@@ -178,9 +178,8 @@ class FileProcessor:
                     )
                     
                 if width < self.MIN_IMAGE_DIMENSION or height < self.MIN_IMAGE_DIMENSION:
-                    raise FileProcessingError(
-                        f"Image too small: {width}x{height}. "
-                        f"Minimum dimension: {self.MIN_IMAGE_DIMENSION}px"
+                    logger.warning(
+                        f"Small image detected: {width}x{height}. Will upscale to minimum dimension {self.MIN_IMAGE_DIMENSION}px during processing."
                     )
                 
                 # Check aspect ratio (floor plans are typically landscape)
@@ -243,6 +242,21 @@ class FileProcessor:
             # Get dimensions
             width, height = img.size
             
+            # Optionally upscale to ensure minimum dimension
+            min_dim = min(width, height)
+            if min_dim < self.MIN_IMAGE_DIMENSION:
+                scale = self.MIN_IMAGE_DIMENSION / float(min_dim)
+                new_w = int(round(width * scale))
+                new_h = int(round(height * scale))
+                # Avoid exceeding maximums
+                if new_w > self.MAX_IMAGE_DIMENSION or new_h > self.MAX_IMAGE_DIMENSION:
+                    ratio = min(self.MAX_IMAGE_DIMENSION / float(new_w), self.MAX_IMAGE_DIMENSION / float(new_h))
+                    new_w = int(round(new_w * ratio))
+                    new_h = int(round(new_h * ratio))
+                logger.info(f"Upscaling image from {width}x{height} to {new_w}x{new_h}")
+                img = img.resize((new_w, new_h), resample=Image.LANCZOS)
+                width, height = new_w, new_h
+
             # Save as high-quality PNG for CubiCasa5K processing
             output_buffer = BytesIO()
             img.save(output_buffer, format='PNG', optimize=True)
