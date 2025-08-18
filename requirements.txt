@@ -31,6 +31,8 @@ scikit-image==0.19.3
 shapely==2.0.2
 svgpathtools==1.5.1
 gdown==4.6.0
+tensorboardX==2.6.2.2
+lmdb==1.4.1
 
 # 3D Processing and Mesh Generation
 open3d==0.16.0                # 3D geometry processing

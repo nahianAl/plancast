@@ -19,6 +19,33 @@ PlanCast now has a **fully functional, production-ready application with custom 
 
 ---
 
+### Recent Progress (2025-08-18)
+
+- Backend/API
+  - Mounted static models at `/models` for browser downloads.
+  - Hardened CORS and error responses for readable JSON on failures.
+  - DB alignment (enums/columns/timestamps), removed incompatible fields; ensured `updated_at` defaults and `completed_at` usage.
+  - WebSockets: run ASGI `socketio_app`, path stabilized; live job updates reliable.
+  - CubiCasa loading: detect Git LFS pointers, prefer bundled model, support `CUBICASA_MODEL_URL`; graceful placeholder fallback when blocked.
+  - Processing: pass `job_id` to `process_image`; auto-upscale images below 512px; allow non-negative room offsets in room/wall generators.
+  - Export: confirmed GLB/OBJ/STL export; absolute URLs via `PUBLIC_API_URL`.
+
+- Frontend
+  - Job status hook queries backend via `NEXT_PUBLIC_API_URL`.
+  - WebSocket client configured (`/socket.io`, creds, polling-first) with auto-connect.
+  - Preview page uses typed `result.output_files` with fallback to `model_url`.
+
+- Deployment/Infra
+  - Procfile starts `uvicorn api.main:socketio_app`.
+  - Docker installs `libmagic`/`file` for MIME detection.
+  - Removed model from Git LFS; Vercel builds no longer blocked by LFS.
+  - Railway uses `CUBICASA_MODEL_URL` (Drive `uc?export=download&id=...`).
+
+- Current state
+  - End-to-end pipeline works in production (upload → process → preview → download). Example job exported GLB/OBJ/STL and is previewable.
+
+---
+
 ### 🎯 **CURRENT PROJECT STATUS** (Updated: August 2024)
 
 **✅ COMPLETED:**

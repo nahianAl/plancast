@@ -22,6 +22,8 @@ import logging
 
 from models.data_structures import CubiCasaOutput, ProcessingJob
 from utils.logger import CubiCasaLogger, get_logger
+from services.floortrans.models import get_model
+from services.floortrans.post_prosessing import split_prediction, get_polygons
 
 logger = get_logger("cubicasa_service")
 cubicasa_logger = CubiCasaLogger()
@@ -37,28 +39,6 @@ class DependencyError(Exception):
     pass
 
 
-class PlaceholderModel(nn.Module):
-    """
-    TEMPORARY: Placeholder model for testing pipeline.
-    TODO: Replace with real CubiCasa5K architecture before production.
-    """
-    def __init__(self):
-        super().__init__()
-        self.dummy = nn.Conv2d(3, 64, 3, padding=1)
-        logger.warning("Using PLACEHOLDER model - replace with real CubiCasa5K before production!")
-    
-    def forward(self, x):
-        # Return mock outputs that match expected format
-        batch_size = x.shape[0]
-        height, width = x.shape[2], x.shape[3]
-        
-        return {
-            'room_segmentation': torch.zeros(batch_size, 1, height, width),
-            'wall_segmentation': torch.zeros(batch_size, 1, height, width),
-            'junction_heatmap': torch.zeros(batch_size, 1, height, width),
-        }
-
-
 class CubiCasaService:
     """
     Production CubiCasa5K service with robust error handling and fallback systems.
@@ -72,7 +52,7 @@ class CubiCasaService:
     """
     
     # Model configuration (URL can be overridden via env var CUBICASA_MODEL_URL)
-    MODEL_URL = "https://drive.google.com/uc?id=1XnQK7QEFfKEdmM5hDuSczQzEt0ULq0dJ"
+    MODEL_URL = "https://drive.google.com/uc?export=download&id=1uOjLlp7n0mrEcSAmAhcdazWF4ST9rzBB"
     MODEL_FILENAME = "model_best_val_loss_var.pkl"
     
     def __init__(self, models_dir: str = "assets/models"):
@@ -211,16 +191,10 @@ class CubiCasaService:
         logger.info(f"Device: {self.device}")
         
         try:
-            # Validate model file integrity; if missing, use placeholder model
+            # Validate model file integrity; if missing, raise an error as we can't fall back anymore
             if not self.model_path.exists():
-                logger.warning(f"Model file not found at {self.model_path}; using placeholder model")
-                self.model = PlaceholderModel()
-                self.model.eval()
-                self.model_loaded = True
-                cubicasa_logger.log_model_loading(True, time.time() - start_time)
-                logger.info("✅ Placeholder model initialized successfully")
-                return
-            
+                raise CubiCasaError(f"Model file not found at {self.model_path}. Cannot proceed.")
+
             file_size = self.model_path.stat().st_size
             file_size_mb = file_size / (1024 * 1024)
             logger.info(f"Model file size: {file_size_mb:.2f} MB")
@@ -232,67 +206,44 @@ class CubiCasaService:
                 logger.warning(f"Model file seems large: {file_size_mb:.2f} MB")
             
             # Load model checkpoint with PyTorch 2.x compatibility
-            logger.info("Attempting to load model with PyTorch 2.x compatibility...")
+            logger.info("Attempting to load model checkpoint...")
             
             # Try loading with PyTorch version-specific parameters
             if int(torch.__version__.split('.')[0]) >= 2:
-                # PyTorch 2.x - use weights_only parameter
                 checkpoint = torch.load(
                     self.model_path, 
                     map_location=torch.device(self.device),
                     weights_only=False
                 )
             else:
-                # PyTorch 1.x - don't use weights_only parameter
                 checkpoint = torch.load(
                     self.model_path, 
                     map_location=torch.device(self.device)
                 )
             
-            logger.info("✅ Model loaded successfully with PyTorch 2.x compatibility")
-            logger.info(f"✅ Checkpoint type: {type(checkpoint)}")
+            logger.info("✅ Model checkpoint loaded successfully.")
+            logger.info(f"Checkpoint keys: {list(checkpoint.keys())}")
             
-            # Handle different checkpoint formats
-            if isinstance(checkpoint, dict):
-                logger.info("Checkpoint is dictionary format")
-                logger.info(f"Checkpoint keys: {list(checkpoint.keys())}")
-                
-                # For now, use placeholder model (TODO: replace with real architecture)
-                self.model = PlaceholderModel()
-                
-                # Try to load weights if available
-                if 'model' in checkpoint and hasattr(checkpoint['model'], 'state_dict'):
-                    logger.info("Found model state dict in checkpoint")
-                    # TODO: Load actual weights when we have real architecture
-                elif 'model_state_dict' in checkpoint:
-                    logger.info("Found model_state_dict in checkpoint")
-                    # TODO: Load actual weights when we have real architecture
-                elif 'state_dict' in checkpoint:
-                    logger.info("Found state_dict in checkpoint")
-                    # TODO: Load actual weights when we have real architecture
-                else:
-                    logger.info("Using checkpoint as-is with placeholder model")
-                    
+            # Initialize the real CubiCasa5K model architecture
+            logger.info("Initializing real CubiCasa5K model architecture...")
+            self.model = get_model('hg_furukawa_original', 51)
+            n_classes = 44
+            self.model.conv4_ = torch.nn.Conv2d(256, n_classes, bias=True, kernel_size=1)
+            self.model.upsample = torch.nn.ConvTranspose2d(n_classes, n_classes, kernel_size=4, stride=4)
+            logger.info("✅ Real model architecture initialized.")
+
+            # Load the state dict from the checkpoint
+            if 'model_state' in checkpoint:
+                logger.info("Loading 'model_state' from checkpoint into model...")
+                self.model.load_state_dict(checkpoint['model_state'])
+                logger.info("✅ Model state loaded successfully.")
             else:
-                # Direct model object
-                logger.info("Checkpoint is direct model object")
-                self.model = checkpoint
-            
+                raise CubiCasaError("Checkpoint does not contain 'model_state' key.")
+
             # Set to evaluation mode
-            if hasattr(self.model, 'eval'):
-                self.model.eval()
-                logger.info("✅ Model set to eval mode")
-            else:
-                logger.warning("⚠️ Model doesn't have eval() method")
-            
-            # Verify model structure
-            if hasattr(self.model, 'forward'):
-                logger.info("✅ Model has forward method")
-            elif hasattr(self.model, '__call__'):
-                logger.info("✅ Model has __call__ method")
-            else:
-                logger.warning("⚠️ Model doesn't have forward or __call__ method")
-            
+            self.model.eval()
+            logger.info("✅ Model set to eval mode")
+
             load_time = time.time() - start_time
             self.model_loaded = True
             
@@ -305,18 +256,7 @@ class CubiCasaService:
             
             cubicasa_logger.log_model_loading(False, load_time, error_msg)
             logger.error(f"❌ Model loading failed: {error_msg}")
-            
-            # Final fallback: initialize placeholder model to keep pipeline running
-            logger.info("🔄 Falling back to placeholder model...")
-            try:
-                self.model = PlaceholderModel()
-                self.model.eval()
-                self.model_loaded = True
-                cubicasa_logger.log_model_loading(True, time.time() - start_time)
-                logger.info("✅ Placeholder model initialized successfully")
-            except Exception as fallback_error:
-                logger.error(f"❌ Placeholder initialization failed: {str(fallback_error)}")
-                raise CubiCasaError(f"All model loading attempts failed: {error_msg}")
+            raise CubiCasaError(f"Fatal error during model loading: {error_msg}")
     
     def _load_model_fallback(self) -> None:
         """
@@ -389,7 +329,7 @@ class CubiCasaService:
         except Exception as e:
             raise CubiCasaError(f"Image preprocessing failed: {str(e)}")
     
-    def _run_inference(self, image_tensor: torch.Tensor) -> Dict[str, Any]:
+    def _run_inference(self, image_tensor: torch.Tensor) -> torch.Tensor:
         """
         Run CubiCasa5K inference on preprocessed image.
         
@@ -397,53 +337,71 @@ class CubiCasaService:
             image_tensor: Preprocessed image tensor
             
         Returns:
-            Raw model outputs
+            Raw model output tensor
         """
         try:
             with torch.no_grad():
-                # Run model inference
+                # Run model inference and return the raw tensor
                 outputs = self.model(image_tensor)
-                
-                # Convert tensors to numpy for processing
-                if isinstance(outputs, dict):
-                    processed_outputs = {}
-                    for key, value in outputs.items():
-                        if torch.is_tensor(value):
-                            processed_outputs[key] = value.cpu().numpy()
-                        else:
-                            processed_outputs[key] = value
-                else:
-                    # Handle single tensor output
-                    processed_outputs = outputs.cpu().numpy()
-                
-                return processed_outputs
+                return outputs
                 
         except Exception as e:
             raise CubiCasaError(f"Model inference failed: {str(e)}")
     
     def _postprocess_outputs(self, 
-                           outputs: Dict[str, Any], 
+                           outputs: torch.Tensor, 
                            original_size: Tuple[int, int]) -> CubiCasaOutput:
         """
-        Post-process CubiCasa5K outputs to extract structured data.
+        Post-process CubiCasa5K outputs to extract structured data using the real floortrans logic.
         
         Args:
-            outputs: Raw model outputs
+            outputs: Raw model output tensor
             original_size: Original image dimensions
             
         Returns:
             Structured CubiCasaOutput
         """
         try:
-            # Extract wall coordinates
-            wall_coordinates = self._extract_wall_coordinates(outputs, original_size)
+            height, width = original_size[1], original_size[0]
+            img_size = (height, width)
+            split = [21, 12, 11] # Based on the notebook analysis
             
-            # Extract room bounding boxes
-            room_bounding_boxes = self._extract_room_bounding_boxes(outputs, original_size)
+            # 1. Split the raw prediction tensor
+            heatmaps, rooms, icons = split_prediction(outputs, img_size, split)
+
+            # 2. Call the main polygon extraction function
+            # Note: We can fine-tune the threshold and opening types later
+            polygons, types, room_polygons, room_types = get_polygons((heatmaps, rooms, icons), 0.2, [1, 2])
+
+            # 3. Convert shapely polygons to simple coordinate lists for our data structures
+            wall_coordinates = []
+            room_bounding_boxes = {}
             
-            # Calculate confidence scores
-            confidence_scores = self._calculate_confidence_scores(outputs)
+            # Process room polygons
+            for i, room_poly in enumerate(room_polygons):
+                room_class_id = room_types[i]['class']
+                # You might want a mapping from class ID to a name like "living_room"
+                room_name = f"room_{room_class_id}_{i}"
+                
+                # Get bounding box from the shapely polygon
+                min_x, min_y, max_x, max_y = room_poly.bounds
+                room_bounding_boxes[room_name] = {
+                    "min_x": int(min_x),
+                    "max_x": int(max_x),
+                    "min_y": int(min_y),
+                    "max_y": int(max_y)
+                }
+
+            # Process wall and icon polygons
+            for i, poly in enumerate(polygons):
+                 # For now, we'll just add all wall coordinates.
+                 # In the future, you can differentiate based on types[i]['type']
+                 if types[i]['type'] == 'wall':
+                     wall_coordinates.extend([tuple(map(int, coord)) for coord in poly])
             
+            # For now, confidence scores are static. This can be improved later.
+            confidence_scores = {room: 0.95 for room in room_bounding_boxes.keys()}
+
             return CubiCasaOutput(
                 wall_coordinates=wall_coordinates,
                 room_bounding_boxes=room_bounding_boxes,
@@ -453,76 +411,9 @@ class CubiCasaService:
             )
             
         except Exception as e:
+            # Add more context to the error
+            logger.error(f"Post-processing failed with error: {e}", exc_info=True)
             raise CubiCasaError(f"Output post-processing failed: {str(e)}")
-    
-    def _extract_wall_coordinates(self, outputs: Dict[str, Any], 
-                                original_size: Tuple[int, int]) -> List[Tuple[int, int]]:
-        """
-        Extract wall coordinates from model outputs.
-        
-        TODO: Implement real wall extraction from CubiCasa5K segmentation outputs.
-        """
-        # PLACEHOLDER: Generate mock wall coordinates in your discovered format
-        logger.info("Using placeholder wall coordinate extraction")
-        
-        # Scale mock coordinates to original image size
-        scale_x = original_size[0] / 512
-        scale_y = original_size[1] / 512
-        
-        # Mock wall coordinates that form a simple rectangular room
-        mock_coordinates_512 = [
-            (55, 49), (60, 49), (192, 49), (192, 54), (192, 186),
-            (187, 186), (55, 186), (55, 49), (100, 120), (150, 120)
-        ]
-        
-        # Scale to original image size
-        scaled_coordinates = [
-            (int(x * scale_x), int(y * scale_y)) 
-            for x, y in mock_coordinates_512
-        ]
-        
-        logger.info(f"Generated {len(scaled_coordinates)} wall coordinate points")
-        return scaled_coordinates
-    
-    def _extract_room_bounding_boxes(self, outputs: Dict[str, Any], 
-                                   original_size: Tuple[int, int]) -> Dict[str, Dict[str, int]]:
-        """
-        Extract room bounding boxes from model outputs.
-        
-        TODO: Implement real room detection from CubiCasa5K segmentation outputs.
-        """
-        # PLACEHOLDER: Generate mock room data in your discovered format
-        logger.info("Using placeholder room detection")
-        
-        scale_x = original_size[0] / 512
-        scale_y = original_size[1] / 512
-        
-        # Mock room data that matches your test format
-        mock_rooms = {
-            "kitchen": {
-                "min_x": 0,
-                "max_x": int(255 * scale_x),
-                "min_y": 0,
-                "max_y": int(246 * scale_y)
-            },
-            "living_room": {
-                "min_x": int(260 * scale_x),
-                "max_x": int(450 * scale_x),
-                "min_y": 0,
-                "max_y": int(200 * scale_y)
-            }
-        }
-        
-        logger.info(f"Detected {len(mock_rooms)} rooms: {list(mock_rooms.keys())}")
-        return mock_rooms
-    
-    def _calculate_confidence_scores(self, outputs: Dict[str, Any]) -> Dict[str, float]:
-        """Calculate confidence scores for detected rooms."""
-        # PLACEHOLDER: Return mock confidence scores
-        return {
-            "kitchen": 0.89,
-            "living_room": 0.76
-        }
     
     def process_image(self, image_bytes: bytes, job_id: str) -> CubiCasaOutput:
         """
@@ -601,7 +492,7 @@ class CubiCasaService:
             "model_loaded": self.model_loaded,
             "device": self.device,
             "model_path_exists": self.model_path.exists(),
-            "using_placeholder": True,  # TODO: Set to False when real model is integrated
+            "using_placeholder": False,
             "timestamp": time.time(),
             "pytorch_version": torch.__version__,
             "cuda_available": torch.cuda.is_available()

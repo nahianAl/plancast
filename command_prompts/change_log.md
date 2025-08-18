@@ -79,3 +79,19 @@ Date: 2025-08-18
 - Generated models are served under `/models/{job_id}/...` for preview and download.
 
 
+### Latest Updates (2025-08-18)
+- Status endpoint: accepts `request`, sanitizes `job_id` (handles encoded `{6}` as `%7B6%7D`), uses `project.output_files`, and returns CORS-friendly JSON on errors.
+- Subscription tier enum alignment: `SubscriptionTier` now matches DB values exactly (`free`/`pro`/`enterprise`); admin bootstrap inserts with `free`.
+- Detached SQLAlchemy instance: capture `project_id` before session closes in `/convert` to prevent refresh errors when scheduling background tasks and building responses.
+- Successful conversion kickoff: `/convert` returns 200, job is created, redirect to preview works, and WebSocket connects for live updates.
+- Runtime dependency fix: added `libmagic1` and `file` packages in `Dockerfile` to satisfy `python-magic`/MIME detection (`failed to find libmagic`).
+- Settings additions: defined `GENERATED_MODELS_DIR`, `USE_Y_UP_FOR_WEB`, and `WEB_OPTIMIZED_GLB` in `config/settings.py` so mesh exporter imports resolve in production.
+- Status endpoint: removed reference to non-existent `started_at` on `Project` when building response.
+- CubiCasa model loading: detect Git LFS pointer files and force re-download of the real model in `CubiCasaService._ensure_model_available()`; mitigates `invalid load key, 'v'` pickle errors.
+- CubiCasa fallback: if download fails or model missing on deploy, copy bundled model from `assets/models` when available; otherwise automatically initialize placeholder model to keep pipeline running (avoids failing jobs on download restrictions).
+- CubiCasa model URL override: service now reads `CUBICASA_MODEL_URL` to download the model from a binary-safe public URL (e.g., GitHub Release/S3/Google Drive `uc?export=download&id=...`).
+- Repository alignment: removed `started_at` usage from `ProjectRepository.update_project_status` to match DB schema; only `completed_at` is set on completion/failure.
+- Small image handling: relaxed strict validation; images under 512px are now auto-upscaled to the minimum dimension during processing (`services/file_processor.py`).
+- Processing fix: pass `job_id` to `CubiCasaService.process_image` from `FloorPlanProcessor` to satisfy the required parameter (`core/floorplan_processor.py`).
+- Room/wall validation: adjusted to allow non-negative room offsets (`x_offset_feet`, `y_offset_feet >= 0`) while keeping dimensions (`width_feet`, `length_feet`, `area_sqft`) strictly positive (`services/room_generator.py`, `services/wall_generator.py`).
+
