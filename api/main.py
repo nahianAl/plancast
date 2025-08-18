@@ -41,7 +41,7 @@ from shutil import copy2
 app = FastAPI(
     title="PlanCast API",
     description="AI-powered floor plan to 3D model conversion service",
-    version="1.0.2",  # Force restart
+    version="1.0.3",  # Force restart - WebSocket CORS fix
     docs_url="/docs",
     redoc_url="/redoc"
 )

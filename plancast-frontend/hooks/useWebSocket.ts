@@ -63,14 +63,13 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
       console.log('🔌 Attempting WebSocket connection to:', url);
       socketRef.current = io(url, {
         path: '/socket.io',
-        transports: ['polling', 'websocket'],
+        transports: ['websocket', 'polling'],  // Try WebSocket first, then polling
         upgrade: true,
         rememberUpgrade: true,
         withCredentials: true,
-        // TEMPORARY: Add explicit CORS settings for debugging
-        extraHeaders: {
-          'Origin': 'https://www.getplancast.com'
-        }
+        // TEMPORARY: Add timeout and retry settings for debugging
+        timeout: 20000,
+        forceNew: true
       });
 
       // Connection event handlers

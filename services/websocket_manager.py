@@ -34,7 +34,17 @@ class WebSocketManager:
             async_mode='asgi',
             # TEMPORARY: Use wildcard CORS for debugging WebSocket issues
             # TODO: REMOVE THIS - Restrict CORS after fixing WebSocket connection
-            cors_allowed_origins="*",
+            cors_allowed_origins=[
+                "https://getplancast.com",
+                "https://www.getplancast.com",
+                "http://getplancast.com", 
+                "http://www.getplancast.com",
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "https://localhost:3000",
+                "https://127.0.0.1:3000",
+                "*"  # TEMPORARY: Allow all origins for debugging
+            ],
             logger=True,
             engineio_logger=True,
             ping_timeout=60,  # Increased from default 20
