@@ -106,7 +106,7 @@ def test_simple_pipeline_components():
         print(f"✅ Room generation successful: {len(room_meshes)} rooms created")
         for room in room_meshes:
             print(f"   - {room.name}: {len(room.vertices)} vertices, {len(room.faces)} faces")
-            print(f"     Dimensions: {room.width_feet:.1f}' × {room.length_feet:.1f}' = {room.area_sqft:.1f} sqft")
+            print(f"     Height: {room.height_feet:.1f}' feet")
         
         # Test 2: Simple Wall Generator
         print("\n📋 Test 2: Simple Wall Generator")
@@ -188,6 +188,7 @@ def test_with_actual_image_file():
     
     # Look for test image files
     test_image_paths = [
+        "test_image.jpg",  # Use the real test image first
         "test_floorplan.jpg",
         "test_floorplan.png",
         "sample_floorplan.jpg",

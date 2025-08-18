@@ -249,17 +249,17 @@ class SimpleWallGenerator:
         
         # Create faces for the wall
         # Front face (Z = 0)
-        front_face = Face(vertex_indices=[0, 1, 2, 3])
+        front_face = Face(indices=[0, 1, 2, 3])
         
         # Back face (Z = wall_height)
-        back_face = Face(vertex_indices=[7, 6, 5, 4])
+        back_face = Face(indices=[7, 6, 5, 4])
         
         # Side faces (4 rectangular sides)
         side_faces = [
-            Face(vertex_indices=[0, 4, 5, 1]),  # Left side
-            Face(vertex_indices=[1, 5, 6, 2]),  # Top side
-            Face(vertex_indices=[2, 6, 7, 3]),  # Right side
-            Face(vertex_indices=[3, 7, 4, 0])   # Bottom side
+            Face(indices=[0, 4, 5, 1]),  # Left side
+            Face(indices=[1, 5, 6, 2]),  # Top side
+            Face(indices=[2, 6, 7, 3]),  # Right side
+            Face(indices=[3, 7, 4, 0])   # Bottom side
         ]
         
         faces = [front_face, back_face] + side_faces

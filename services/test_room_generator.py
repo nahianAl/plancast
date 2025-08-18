@@ -159,16 +159,11 @@ class SimpleRoomGenerator:
         }
         
         return Room3D(
-            id=room_name,
             name=room_name,
             vertices=vertices,
             faces=faces,
-            room_type=room_name,
-            width_feet=width_feet,
-            length_feet=length_feet,
-            height_feet=room_height_feet,
-            area_sqft=area_sqft,
-            metadata=metadata
+            elevation_feet=0.0,  # Floor elevation
+            height_feet=room_height_feet
         )
     
     def _create_simple_floor_mesh(self,
@@ -204,17 +199,17 @@ class SimpleRoomGenerator:
         
         # Create faces for a simple rectangular floor
         # Top face (counter-clockwise winding)
-        top_face = Face(vertex_indices=[0, 1, 2, 3])
+        top_face = Face(indices=[0, 1, 2, 3])
         
         # Bottom face (counter-clockwise winding)
-        bottom_face = Face(vertex_indices=[7, 6, 5, 4])
+        bottom_face = Face(indices=[7, 6, 5, 4])
         
         # Side faces (4 rectangular sides)
         side_faces = [
-            Face(vertex_indices=[0, 4, 5, 1]),  # Front
-            Face(vertex_indices=[1, 5, 6, 2]),  # Right
-            Face(vertex_indices=[2, 6, 7, 3]),  # Back
-            Face(vertex_indices=[3, 7, 4, 0])   # Left
+            Face(indices=[0, 4, 5, 1]),  # Front
+            Face(indices=[1, 5, 6, 2]),  # Right
+            Face(indices=[2, 6, 7, 3]),  # Back
+            Face(indices=[3, 7, 4, 0])   # Left
         ]
         
         faces = [top_face, bottom_face] + side_faces
