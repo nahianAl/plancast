@@ -32,7 +32,16 @@ class WebSocketManager:
         # Create Socket.IO server with longer timeouts for real model processing
         self.sio = socketio.AsyncServer(
             async_mode='asgi',
-            cors_allowed_origins="*",
+            cors_allowed_origins=[
+                "https://getplancast.com",
+                "https://www.getplancast.com",
+                "http://getplancast.com", 
+                "http://www.getplancast.com",
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "https://localhost:3000",
+                "https://127.0.0.1:3000"
+            ],
             logger=True,
             engineio_logger=True,
             ping_timeout=60,  # Increased from default 20

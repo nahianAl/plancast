@@ -53,14 +53,88 @@ app.add_middleware(
         "http://getplancast.com", 
         "http://www.getplancast.com",
         "http://localhost:3000",
-        "http://127.0.0.1:3000"
+        "http://127.0.0.1:3000",
+        "https://localhost:3000",
+        "https://127.0.0.1:3000"
     ],
     allow_credentials=True,
-    allow_methods=["*"],  # This ensures OPTIONS is included
-    allow_headers=["*"],  # This allows all headers including multipart
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+        "Cache-Control",
+        "Pragma"
+    ],
     expose_headers=["*"],
     max_age=3600
 )
+
+# Add CORS preflight handler
+@app.options("/{full_path:path}")
+async def options_handler(request: Request):
+    """Handle CORS preflight requests."""
+    origin = request.headers.get("origin")
+    print(f"🔍 CORS preflight request from origin: {origin}")
+    
+    # Check if origin is allowed
+    allowed_origins = [
+        "https://getplancast.com",
+        "https://www.getplancast.com",
+        "http://getplancast.com", 
+        "http://www.getplancast.com",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://localhost:3000",
+        "https://127.0.0.1:3000"
+    ]
+    
+    if origin in allowed_origins:
+        return JSONResponse(
+            content={"message": "CORS preflight successful"},
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+                "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Cache-Control, Pragma",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Max-Age": "3600"
+            }
+        )
+    else:
+        print(f"❌ CORS preflight rejected for origin: {origin}")
+        return JSONResponse(
+            content={"error": "CORS not allowed"},
+            status_code=403
+        )
+
+# Add request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all incoming requests for debugging."""
+    origin = request.headers.get("origin", "No origin")
+    user_agent = request.headers.get("user-agent", "No user agent")
+    method = request.method
+    url = str(request.url)
+    
+    print(f"🔍 Request: {method} {url}")
+    print(f"🔍 Origin: {origin}")
+    print(f"🔍 User-Agent: {user_agent}")
+    
+    response = await call_next(request)
+    
+    # Add CORS headers to all responses
+    if origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    
+    print(f"🔍 Response: {response.status_code}")
+    return response
 
 # Initialize services
 validator = PlanCastValidator()
