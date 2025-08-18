@@ -141,8 +141,23 @@ class CubiCasaService:
         Download CubiCasa5K model if not present.
         """
         if self.model_path.exists():
-            logger.info(f"CubiCasa5K model found: {self.model_path}")
-            return
+            # Detect Git LFS pointer or obviously invalid file and re-download
+            try:
+                with open(self.model_path, 'rb') as f:
+                    head = f.read(64)
+                # Git LFS pointer starts with: b'version https://git-lfs.github.com/spec/v1'
+                if head.startswith(b'version https://git-lfs.github.com/spec/v1'):
+                    logger.warning("Detected Git LFS pointer for model file; re-downloading actual model...")
+                    # Remove pointer so download can proceed
+                    try:
+                        self.model_path.unlink()
+                    except Exception:
+                        pass
+                else:
+                    logger.info(f"CubiCasa5K model found: {self.model_path}")
+                    return
+            except Exception as e:
+                logger.warning(f"Model file check failed ({e}), attempting re-download...")
             
         logger.info("Downloading CubiCasa5K model...")
         start_time = time.time()
