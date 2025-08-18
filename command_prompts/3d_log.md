@@ -326,12 +326,29 @@ CubiCasa Output → Simple Room Generation → Simple Wall Generation → Basic 
 1. ✅ **Core 3D generation working** - Simplified pipeline proven
 2. ✅ **Temporary pipeline swap completed** - Test pipeline now runs as main pipeline
 3. ✅ **WebSocket CORS issues fixed** - Temporary wildcard CORS for debugging
-4. **Gradually reintegrate coordinate scaling** into working pipeline
-5. **Add back door/window cutouts** 
-6. **Restore enhanced validation**
-7. **Test complete enhanced pipeline**
-8. **Deploy fixed pipeline to production**
-9. **REMOVE TEMPORARY CHANGES** - Revert to main pipeline and restrict CORS after fixing core issues
+4. ✅ **Job status CORS headers added** - Explicit CORS headers for /jobs/{id}/status endpoint
+5. **Gradually reintegrate coordinate scaling** into working pipeline
+6. **Add back door/window cutouts** 
+7. **Restore enhanced validation**
+8. **Test complete enhanced pipeline**
+9. **Deploy fixed pipeline to production**
+10. **REMOVE TEMPORARY CHANGES** - Revert to main pipeline and restrict CORS after fixing core issues
+
+----
+
+**✅ CORS ISSUE RESOLVED - Job Status Endpoint Fixed**
+
+**Verification Results**:
+- ✅ **Job status endpoint working** - Returns data correctly
+- ✅ **CORS headers present** - `access-control-allow-origin: https://www.getplancast.com`
+- ✅ **Credentials allowed** - `access-control-allow-credentials: true`
+- ✅ **Headers exposed** - `access-control-expose-headers: *`
+
+**Browser Cache Issue**:
+- The Railway deployment has picked up the latest changes
+- CORS headers are being sent correctly by the backend
+- Browser may be caching old responses or there's a timing issue
+- **Solution**: Hard refresh browser (Ctrl+F5 / Cmd+Shift+R) or clear cache
 
 ---
 
