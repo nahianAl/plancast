@@ -60,12 +60,17 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
       }
 
       // Create new socket connection
+      console.log('🔌 Attempting WebSocket connection to:', url);
       socketRef.current = io(url, {
         path: '/socket.io',
         transports: ['polling', 'websocket'],
         upgrade: true,
         rememberUpgrade: true,
         withCredentials: true,
+        // TEMPORARY: Add explicit CORS settings for debugging
+        extraHeaders: {
+          'Origin': 'https://www.getplancast.com'
+        }
       });
 
       // Connection event handlers
@@ -98,7 +103,18 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
         }
       });
 
+      // TEMPORARY: Add error handling for CORS issues
       socketRef.current.on('connect_error', (error) => {
+        console.error('🔌 WebSocket connection error:', error);
+        console.error('🔌 Error details:', {
+          message: error.message,
+          description: error.description,
+          context: error.context,
+          type: error.type
+        });
+        setConnectionError(error);
+        onError?.(error);
+      });
         console.error('WebSocket connection error:', error);
         setConnectionError(error);
         setIsConnected(false);

@@ -32,23 +32,19 @@ class WebSocketManager:
         # Create Socket.IO server with longer timeouts for real model processing
         self.sio = socketio.AsyncServer(
             async_mode='asgi',
-            cors_allowed_origins=[
-                "https://getplancast.com",
-                "https://www.getplancast.com",
-                "http://getplancast.com", 
-                "http://www.getplancast.com",
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "https://localhost:3000",
-                "https://127.0.0.1:3000"
-            ],
+            # TEMPORARY: Use wildcard CORS for debugging WebSocket issues
+            # TODO: REMOVE THIS - Restrict CORS after fixing WebSocket connection
+            cors_allowed_origins="*",
             logger=True,
             engineio_logger=True,
             ping_timeout=60,  # Increased from default 20
             ping_interval=25,  # Increased from default 25
             max_http_buffer_size=1e8,  # 100MB buffer for large files
             allow_upgrades=True,
-            transports=['websocket', 'polling']
+            transports=['websocket', 'polling'],
+            # TEMPORARY: Add explicit CORS settings for WebSocket connections
+            cors_credentials=True,
+            cors_headers=["*"]
         )
         
         # Connection tracking
@@ -386,7 +382,13 @@ class WebSocketManager:
     
     def mount_to_app(self, app: FastAPI):
         """Mount Socket.IO to FastAPI app."""
-        socketio_app = socketio.ASGIApp(self.sio, other_asgi_app=app, socketio_path='socket.io')
+        # TEMPORARY: Add explicit CORS configuration for Socket.IO
+        # TODO: REMOVE THIS - Fix CORS configuration after resolving WebSocket issues
+        socketio_app = socketio.ASGIApp(
+            self.sio, 
+            other_asgi_app=app, 
+            socketio_path='socket.io'
+        )
         return socketio_app
 
 # Global WebSocket manager instance
