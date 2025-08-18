@@ -70,7 +70,9 @@ export const useJobStatus = (options: UseJobStatusOptions) => {
 
   // Subscribe to job updates
   useEffect(() => {
-    if (autoSubscribe && isConnected && jobId) {
+    // TEMPORARY: Disable WebSocket subscription for debugging
+    // TODO: REMOVE THIS - Re-enable WebSocket subscription after fixing connection issues
+    if (false && autoSubscribe && isConnected && jobId) {
       subscribeToJob(jobId);
 
       return () => {
@@ -119,6 +121,26 @@ export const useJobStatus = (options: UseJobStatusOptions) => {
   const refresh = useCallback(() => {
     fetchJobStatus();
   }, [fetchJobStatus]);
+
+  // TEMPORARY: Add polling for job status updates (WebSocket disabled)
+  // TODO: REMOVE THIS - Re-enable WebSocket after fixing connection issues
+  useEffect(() => {
+    if (!jobId) return;
+
+    // Initial fetch
+    fetchJobStatus();
+
+    // Set up polling for processing jobs
+    const pollInterval = setInterval(async () => {
+      if (jobStatus?.status === 'pending' || jobStatus?.status === 'processing') {
+        await fetchJobStatus();
+      }
+    }, 2000); // Poll every 2 seconds
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [jobId, fetchJobStatus, jobStatus?.status]);
 
   // Subscribe/unsubscribe manually
   const subscribe = useCallback(() => {

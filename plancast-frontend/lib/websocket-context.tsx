@@ -74,7 +74,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     unsubscribeFromJob,
   } = useWebSocket({
     url: process.env.NEXT_PUBLIC_WS_URL || 'wss://api.getplancast.com',
-    autoConnect: true, // Connect for all users to receive job updates
+    autoConnect: false, // TEMPORARY: Disable auto-connect for debugging
     onConnect: handleConnect,
     onMessage: handleMessage,
     onJobUpdate: handleJobUpdate,

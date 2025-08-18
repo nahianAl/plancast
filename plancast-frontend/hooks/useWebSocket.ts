@@ -191,7 +191,9 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
 
   // Auto-connect on mount
   useEffect(() => {
-    if (autoConnect) {
+    // TEMPORARY: Disable WebSocket auto-connect for debugging
+    // TODO: REMOVE THIS - Re-enable WebSocket after fixing connection issues
+    if (false && autoConnect) {
       connect();
     }
 
