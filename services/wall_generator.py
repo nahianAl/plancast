@@ -363,30 +363,31 @@ class WallMeshGenerator:
         ]
         
         # Create 12 triangular faces (6 quads = 12 triangles)
+        # All faces should have counter-clockwise winding when viewed from outside
         faces = [
-            # Bottom face (triangulated)
-            Face(indices=[0, 1, 2]),  # Triangle 1
-            Face(indices=[0, 2, 3]),  # Triangle 2
+            # Bottom face (triangulated) - viewed from below (negative Z)
+            Face(indices=[0, 2, 1]),  # Triangle 1 (counter-clockwise from below)
+            Face(indices=[0, 3, 2]),  # Triangle 2 (counter-clockwise from below)
             
-            # Top face (triangulated)
-            Face(indices=[4, 6, 5]),  # Triangle 1 (note: counter-clockwise for top)
-            Face(indices=[4, 7, 6]),  # Triangle 2
+            # Top face (triangulated) - viewed from above (positive Z)
+            Face(indices=[4, 5, 6]),  # Triangle 1 (counter-clockwise from above)
+            Face(indices=[4, 6, 7]),  # Triangle 2 (counter-clockwise from above)
             
-            # Left side face
-            Face(indices=[0, 4, 5]),  # Triangle 1
-            Face(indices=[0, 5, 1]),  # Triangle 2
+            # Left side face - viewed from left side
+            Face(indices=[0, 1, 5]),  # Triangle 1 (counter-clockwise from outside)
+            Face(indices=[0, 5, 4]),  # Triangle 2 (counter-clockwise from outside)
             
-            # Right side face
-            Face(indices=[2, 6, 7]),  # Triangle 1
-            Face(indices=[2, 7, 3]),  # Triangle 2
+            # Right side face - viewed from right side
+            Face(indices=[2, 3, 7]),  # Triangle 1 (counter-clockwise from outside)
+            Face(indices=[2, 7, 6]),  # Triangle 2 (counter-clockwise from outside)
             
-            # Start end face
-            Face(indices=[0, 3, 7]),  # Triangle 1
-            Face(indices=[0, 7, 4]),  # Triangle 2
+            # Start end face - viewed from start
+            Face(indices=[0, 4, 7]),  # Triangle 1 (counter-clockwise from outside)
+            Face(indices=[0, 7, 3]),  # Triangle 2 (counter-clockwise from outside)
             
-            # End end face
-            Face(indices=[1, 5, 6]),  # Triangle 1
-            Face(indices=[1, 6, 2]),  # Triangle 2
+            # End end face - viewed from end
+            Face(indices=[1, 2, 6]),  # Triangle 1 (counter-clockwise from outside)
+            Face(indices=[1, 6, 5]),  # Triangle 2 (counter-clockwise from outside)
         ]
         
         return vertices, faces

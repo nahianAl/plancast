@@ -218,30 +218,31 @@ class RoomMeshGenerator:
         ]
         
         # Create 12 triangular faces (6 quads = 12 triangles)
+        # All faces should have counter-clockwise winding when viewed from outside
         faces = [
-            # Floor (triangulated)
-            Face(indices=[0, 1, 2]),  # Triangle 1
-            Face(indices=[0, 2, 3]),  # Triangle 2
+            # Floor (triangulated) - viewed from below (negative Z)
+            Face(indices=[0, 2, 1]),  # Triangle 1 (counter-clockwise from below)
+            Face(indices=[0, 3, 2]),  # Triangle 2 (counter-clockwise from below)
             
-            # Ceiling (triangulated)
-            Face(indices=[4, 6, 5]),  # Triangle 1 (counter-clockwise for top)
-            Face(indices=[4, 7, 6]),  # Triangle 2
+            # Ceiling (triangulated) - viewed from above (positive Z)
+            Face(indices=[4, 5, 6]),  # Triangle 1 (counter-clockwise from above)
+            Face(indices=[4, 6, 7]),  # Triangle 2 (counter-clockwise from above)
             
-            # Wall 1: Bottom wall (y = min_y)
-            Face(indices=[0, 4, 5]),  # Triangle 1
-            Face(indices=[0, 5, 1]),  # Triangle 2
+            # Wall 1: Bottom wall (y = min_y) - viewed from negative Y
+            Face(indices=[0, 1, 5]),  # Triangle 1 (counter-clockwise from outside)
+            Face(indices=[0, 5, 4]),  # Triangle 2 (counter-clockwise from outside)
             
-            # Wall 2: Right wall (x = max_x)
-            Face(indices=[1, 5, 6]),  # Triangle 1
-            Face(indices=[1, 6, 2]),  # Triangle 2
+            # Wall 2: Right wall (x = max_x) - viewed from positive X
+            Face(indices=[1, 2, 6]),  # Triangle 1 (counter-clockwise from outside)
+            Face(indices=[1, 6, 5]),  # Triangle 2 (counter-clockwise from outside)
             
-            # Wall 3: Top wall (y = max_y)
-            Face(indices=[2, 6, 7]),  # Triangle 1
-            Face(indices=[2, 7, 3]),  # Triangle 2
+            # Wall 3: Top wall (y = max_y) - viewed from positive Y
+            Face(indices=[2, 3, 7]),  # Triangle 1 (counter-clockwise from outside)
+            Face(indices=[2, 7, 6]),  # Triangle 2 (counter-clockwise from outside)
             
-            # Wall 4: Left wall (x = min_x)
-            Face(indices=[3, 7, 4]),  # Triangle 1
-            Face(indices=[3, 4, 0]),  # Triangle 2
+            # Wall 4: Left wall (x = min_x) - viewed from negative X
+            Face(indices=[3, 0, 4]),  # Triangle 1 (counter-clockwise from outside)
+            Face(indices=[3, 4, 7]),  # Triangle 2 (counter-clockwise from outside)
         ]
         
         return vertices, faces

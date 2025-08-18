@@ -79,6 +79,84 @@ Date: 2025-08-18
 - Generated models are served under `/models/{job_id}/...` for preview and download.
 
 
+### Latest Updates (2025-08-18) - 3D GENERATION PIPELINE FIXES 🏗️
+
+**🔧 CRITICAL FIX: 3D Generation Pipeline - From 2D Boundaries to Proper 3D Models**
+- **Root Cause Identified**: 3D generation pipeline was only creating 2D geometry (flat floors and wall outlines)
+- **Room Generator Enhanced**: Upgraded from flat floor rectangles to complete 3D room boxes with walls and ceilings
+- **Wall Generator Optimized**: Modified to create only interior walls between rooms (no outer wall duplication)
+- **3D Model Output**: Now generates proper 3D GLB/OBJ/STL files with actual volume and height
+- **Validation Updated**: Updated mesh validation to account for new 3D geometry structure
+
+**Technical Implementation Details:**
+
+**1. Room Generator - Complete 3D Room Boxes (`services/room_generator.py`):**
+- **Before**: Flat floor rectangles (4 vertices, 2 faces at Z=0)
+- **After**: Complete 3D room boxes (8 vertices, 12 faces)
+  - ✅ **Floor**: 2 triangles at Z=0
+  - ✅ **Ceiling**: 2 triangles at Z=height
+  - ✅ **4 Walls**: 8 triangles connecting floor to ceiling
+- **Vertex Structure**: 4 bottom vertices + 4 top vertices for proper 3D geometry
+- **Face Structure**: 12 triangular faces forming complete room enclosure
+- **Validation Updated**: Changed from 4 vertices/2 faces to 8 vertices/12 faces validation
+
+**2. Wall Generator - Interior Walls Only (`services/wall_generator.py`):**
+- **Before**: Generated all walls including outer walls (duplicating room walls)
+- **After**: Only generates interior walls between adjacent rooms
+- **Wall Extraction**: Modified `_extract_wall_segments_from_rooms()` to exclude outer walls
+- **No Duplication**: Eliminates overlap between room walls and separate wall meshes
+- **Cleaner Geometry**: Prevents double walls and geometry conflicts
+
+**3. 3D Model Structure:**
+- **Room Geometry**: Each room is now a complete 3D box with:
+  - Floor and ceiling surfaces
+  - 4 vertical walls
+  - Proper 3D volume and height
+- **Interior Walls**: Additional walls between adjacent rooms for proper room separation
+- **Mesh Export**: Combined geometry creates proper 3D models for GLB/OBJ/STL export
+
+**Bug Fixes Resolved:**
+- **2D Boundaries Only**: Fixed issue where only 2D boundary visualization was produced
+- **No 3D Volume**: Resolved lack of actual 3D geometry with height and depth
+- **Flat Floor Plans**: Upgraded from flat rectangles to proper 3D room structures
+- **Wall Overlap**: Eliminated duplicate walls between room walls and separate wall meshes
+- **Export Issues**: Fixed 3D model export to produce actual viewable 3D files
+
+**Expected Results:**
+- **Proper 3D Models**: GLB/OBJ/STL files now contain actual 3D geometry
+- **Room Volumes**: Each room has proper height, walls, floor, and ceiling
+- **3D Viewer Compatibility**: Models work correctly in 3D viewers and CAD software
+- **Export Functionality**: Downloadable files are actual 3D models, not 2D boundaries
+- **Visual Quality**: 3D models show proper room separation and building structure
+
+**Performance Impact:**
+- **Increased Geometry**: More vertices and faces per room (4→8 vertices, 2→12 faces)
+- **Better Quality**: Significantly improved 3D model quality and realism
+- **Proper Export**: 3D files now contain meaningful geometry for 3D printing/CAD
+
+**Deployment Status:**
+- ✅ **Room Generator**: Enhanced and deployed
+- ✅ **Wall Generator**: Optimized and deployed
+- ✅ **3D Geometry**: Implemented and active
+- ✅ **Validation**: Updated and deployed
+
+**Previous Updates:**
+- Status endpoint: accepts `request`, sanitizes `job_id` (handles encoded `{6}` as `%7B6%7D`), uses `project.output_files`, and returns CORS-friendly JSON on errors.
+- Subscription tier enum alignment: `SubscriptionTier` now matches DB values exactly (`free`/`pro`/`enterprise`); admin bootstrap inserts with `free`.
+- Detached SQLAlchemy instance: capture `project_id` before session closes in `/convert` to prevent refresh errors when scheduling background tasks and building responses.
+- Successful conversion kickoff: `/convert` returns 200, job is created, redirect to preview works, and WebSocket connects for live updates.
+- Runtime dependency fix: added `libmagic1` and `file` packages in `Dockerfile` to satisfy `python-magic`/MIME detection (`failed to find libmagic`).
+- Settings additions: defined `GENERATED_MODELS_DIR`, `USE_Y_UP_FOR_WEB`, and `WEB_OPTIMIZED_GLB` in `config/settings.py` so mesh exporter imports resolve in production.
+- Status endpoint: removed reference to non-existent `started_at` on `Project` when building response.
+- CubiCasa model loading: detect Git LFS pointer files and force re-download of the real model in `CubiCasaService._ensure_model_available()`; mitigates `invalid load key, 'v'` pickle errors.
+- CubiCasa fallback: if download fails or model missing on deploy, copy bundled model from `assets/models` when available; otherwise automatically initialize placeholder model to keep pipeline running (avoids failing jobs on download restrictions).
+- CubiCasa model URL override: service now reads `CUBICASA_MODEL_URL` to download the model from a binary-safe public URL (e.g., GitHub Release/S3/Google Drive `uc?export=download&id=...`).
+- Repository alignment: removed `started_at` usage from `ProjectRepository.update_project_status` to match DB schema; only `completed_at` is set on completion/failure.
+- Small image handling: relaxed strict validation; images under 512px are now auto-upscaled to the minimum dimension during processing (`services/file_processor.py`).
+- Processing fix: pass `job_id` to `CubiCasaService.process_image` from `FloorPlanProcessor` to satisfy the required parameter (`core/floorplan_processor.py`).
+- Room/wall validation: adjusted to allow non-negative room offsets (`x_offset_feet`, `y_offset_feet >= 0`) while keeping dimensions (`width_feet`, `length_feet`, `area_sqft`) strictly positive (`services/room_generator.py`, `services/wall_generator.py`).
+
+
 ### Latest Updates (2025-08-18) - PERSISTENT STORAGE & WEBSOCKET RACE CONDITION FIXES 🚀
 
 **🔧 CRITICAL FIX: Persistent Storage Implementation & WebSocket Race Condition Resolution**
