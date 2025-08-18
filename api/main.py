@@ -28,7 +28,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Import database models and services
-from models.data_structures import ProcessingJob, ProcessingStatus, FileFormat, RoomAnalysisResponse, RoomSuggestion
+from models.data_structures import ProcessingJob, ProcessingStatus, FileFormat, RoomAnalysisResponse, RoomSuggestion, ScaleInputRequest
 from models.database import Project, ProjectStatus, User
 from models.database_connection import get_db_session
 from models.repository import ProjectRepository, UsageRepository, UserRepository
