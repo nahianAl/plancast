@@ -404,6 +404,10 @@ class CubiCasaService:
             wall_coordinates = []
             room_bounding_boxes = {}
             
+            # Calculate total image area for size comparison
+            total_image_area = original_size[0] * original_size[1]
+            max_room_area_ratio = 0.5  # Room should not cover more than 50% of the image
+            
             # Process room polygons
             for i, room_poly in enumerate(room_polygons):
                 room_class_id = room_types[i]['class']
@@ -415,12 +419,31 @@ class CubiCasaService:
                 
                 # Check for NaN values and handle them
                 if not (np.isnan(min_x) or np.isnan(min_y) or np.isnan(max_x) or np.isnan(max_y)):
+                    # Calculate room area
+                    room_width = max_x - min_x
+                    room_height = max_y - min_y
+                    room_area = room_width * room_height
+                    room_area_ratio = room_area / total_image_area
+                    
+                    # Filter out rooms that are too large (likely covering the entire building)
+                    if room_area_ratio > max_room_area_ratio:
+                        logger.warning(f"Skipping room {room_name} - too large: {room_area_ratio:.2%} of image (area: {room_area})")
+                        continue
+                    
+                    # Filter out rooms that are too small (likely noise)
+                    min_room_area = 100  # Minimum 100 pixels
+                    if room_area < min_room_area:
+                        logger.warning(f"Skipping room {room_name} - too small: {room_area} pixels")
+                        continue
+                    
                     room_bounding_boxes[room_name] = {
                         "min_x": int(min_x),
                         "max_x": int(max_x),
                         "min_y": int(min_y),
                         "max_y": int(max_y)
                     }
+                    
+                    logger.info(f"Added room {room_name}: {room_width:.0f}×{room_height:.0f} pixels ({room_area_ratio:.1%} of image)")
                 else:
                     logger.warning(f"Skipping room {room_name} due to NaN bounds")
 
