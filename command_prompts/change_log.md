@@ -16,6 +16,7 @@ Date: 2025-08-18
   - `/convert` and `/jobs/{id}/status` now return JSON error bodies with CORS headers to aid debugging.
 - Job creation and admin provisioning:
   - Initially auto-provisioned `admin@plancast.com` if missing; then switched to raw SQL to insert/select admin with correct enum casing to avoid ORM/enum mismatches.
+  - Captured `project_id` before closing the DB session in `/convert` to prevent SQLAlchemy detached instance refresh errors when scheduling background tasks and building responses.
 
 ### WebSocket (Socket.IO)
 - Server configuration (`services/websocket_manager.py`):

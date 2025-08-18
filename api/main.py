@@ -349,18 +349,21 @@ async def convert_floorplan(
                 file_size_mb=len(file_content) / (1024 * 1024),
                 request_metadata={"filename": file.filename, "export_formats": export_formats}
             )
+
+            # Capture project ID before session closes to avoid detached refresh
+            project_id = int(project.id)
         
         # Start background processing
         background_tasks.add_task(
             process_floorplan_background,
-            str(project.id),
+            str(project_id),
             file_content,
             file.filename,
             export_formats
         )
         
         response_data = ConvertResponse(
-            job_id=str(project.id),
+            job_id=str(project_id),
             filename=file.filename,
             file_size_bytes=len(file_content)
         )
