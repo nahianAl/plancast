@@ -1,4 +1,4 @@
-from floortrans.models.hg_furukawa_original import *
+from .hg_furukawa_original import *
 
 def get_model(name, n_classes=None, version=None):
     if name == 'hg_furukawa_original':

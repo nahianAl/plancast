@@ -385,12 +385,17 @@ class CubiCasaService:
                 
                 # Get bounding box from the shapely polygon
                 min_x, min_y, max_x, max_y = room_poly.bounds
-                room_bounding_boxes[room_name] = {
-                    "min_x": int(min_x),
-                    "max_x": int(max_x),
-                    "min_y": int(min_y),
-                    "max_y": int(max_y)
-                }
+                
+                # Check for NaN values and handle them
+                if not (np.isnan(min_x) or np.isnan(min_y) or np.isnan(max_x) or np.isnan(max_y)):
+                    room_bounding_boxes[room_name] = {
+                        "min_x": int(min_x),
+                        "max_x": int(max_x),
+                        "min_y": int(min_y),
+                        "max_y": int(max_y)
+                    }
+                else:
+                    logger.warning(f"Skipping room {room_name} due to NaN bounds")
 
             # Process wall and icon polygons
             for i, poly in enumerate(polygons):

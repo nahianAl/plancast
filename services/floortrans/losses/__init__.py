@@ -1,1 +1,1 @@
-from floortrans.losses.uncertainty_loss import *
+from .uncertainty_loss import *
