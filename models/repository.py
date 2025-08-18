@@ -166,10 +166,8 @@ class ProjectRepository:
             if progress_percent is not None:
                 project.progress_percent = progress_percent
             
-            # Update timestamps
-            if status == ProjectStatus.PROCESSING and not project.started_at:
-                project.started_at = datetime.now()
-            elif status in [ProjectStatus.COMPLETED, ProjectStatus.FAILED] and not project.completed_at:
+            # Update timestamps (DB schema has only completed_at)
+            if status in [ProjectStatus.COMPLETED, ProjectStatus.FAILED] and not project.completed_at:
                 project.completed_at = datetime.now()
             
             # Update other fields
