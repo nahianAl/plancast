@@ -71,7 +71,7 @@ class CubiCasaService:
     - Fallback processing options
     """
     
-    # Model configuration
+    # Model configuration (URL can be overridden via env var CUBICASA_MODEL_URL)
     MODEL_URL = "https://drive.google.com/uc?id=1XnQK7QEFfKEdmM5hDuSczQzEt0ULq0dJ"
     MODEL_FILENAME = "model_best_val_loss_var.pkl"
     
@@ -86,6 +86,7 @@ class CubiCasaService:
         self.models_dir.mkdir(parents=True, exist_ok=True)
         
         self.model_path = self.models_dir / self.MODEL_FILENAME
+        self.model_url = os.getenv("CUBICASA_MODEL_URL", self.MODEL_URL)
         self.model = None
         self.model_loaded = False
         self.device = "cpu"  # Force CPU for compatibility
@@ -180,7 +181,7 @@ class CubiCasaService:
             # Ensure parent dir exists
             self.model_path.parent.mkdir(parents=True, exist_ok=True)
             # Some environments block Google Drive; allow fallback later
-            gdown.download(self.MODEL_URL, str(self.model_path), quiet=False)
+            gdown.download(self.model_url, str(self.model_path), quiet=False)
             download_time = time.time() - start_time
 
             if not self.model_path.exists():
