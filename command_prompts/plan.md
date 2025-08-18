@@ -104,12 +104,13 @@ CubiCasa Output → Simple Room Generation → Simple Wall Generation → Basic 
 **Next Steps to Complete Full Pipeline**:
 1. ✅ **Core 3D generation working** - Simplified pipeline proven
 2. ✅ **Temporary pipeline swap completed** - Test pipeline now runs as main pipeline
-3. **Gradually reintegrate coordinate scaling** into working pipeline
-4. **Add back door/window cutouts** 
-5. **Restore enhanced validation**
-6. **Test complete enhanced pipeline**
-7. **Deploy fixed pipeline to production**
-8. **REMOVE TEMPORARY CHANGES** - Revert to main pipeline after fixing core issues
+3. ✅ **WebSocket CORS issues fixed** - Temporary wildcard CORS for debugging
+4. **Gradually reintegrate coordinate scaling** into working pipeline
+5. **Add back door/window cutouts** 
+6. **Restore enhanced validation**
+7. **Test complete enhanced pipeline**
+8. **Deploy fixed pipeline to production**
+9. **REMOVE TEMPORARY CHANGES** - Revert to main pipeline and restrict CORS after fixing core issues
 
 ---
 
