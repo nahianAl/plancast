@@ -314,12 +314,12 @@ async def convert_floorplan(
             if row and len(row) > 0:
                 user_id = int(row[0])
             else:
-                # Insert admin with uppercase enum to match DB
+                # Insert admin matching DB enum (lowercase: 'free','pro','enterprise')
                 inserted = session.execute(
                     sql_text(
                         """
                         INSERT INTO users (email, password_hash, subscription_tier, is_active, created_at)
-                        VALUES (:email, :password_hash, 'FREE', true, NOW())
+                        VALUES (:email, :password_hash, 'free', true, NOW())
                         RETURNING id
                         """
                     ),

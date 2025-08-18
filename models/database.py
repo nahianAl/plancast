@@ -27,10 +27,10 @@ class UserRole(str, enum.Enum):
     MODERATOR = "moderator"
 
 class SubscriptionTier(str, enum.Enum):
-    """Subscription tiers for billing (uppercase to match DB enum)."""
-    FREE = "FREE"
-    PROFESSIONAL = "PROFESSIONAL"
-    ENTERPRISE = "ENTERPRISE"
+    """Subscription tiers for billing (matches DB enum: 'free','pro','enterprise')."""
+    FREE = "free"
+    PROFESSIONAL = "pro"
+    ENTERPRISE = "enterprise"
 
 class ProjectStatus(str, enum.Enum):
     """Project processing status (lowercase to match DB enum)."""
@@ -181,7 +181,10 @@ class Team(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    subscription_tier = Column(Enum(SubscriptionTier), default=SubscriptionTier.PROFESSIONAL)
+    subscription_tier = Column(
+        Enum(SubscriptionTier, values_callable=lambda x: [e.value for e in x], name="subscriptiontier"),
+        default=SubscriptionTier.PROFESSIONAL.value
+    )
     max_members = Column(Integer, default=10)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -29,7 +29,7 @@ Date: 2025-08-18
 ### Database/ORM Alignment
 - Enum bindings (`models/database.py`):
   - Bound SQLAlchemy enums to existing Postgres types via `Enum(..., values_callable=..., name=...)`.
-  - `SubscriptionTier` uses uppercase values (FREE/PROFESSIONAL/ENTERPRISE) matching DB enum.
+  - `SubscriptionTier` now matches DB enum values exactly (`free`/`pro`/`enterprise`), and inserts use lowercase.
   - `ProjectStatus` uses lowercase values (pending/processing/completed/failed/cancelled) matching DB enum.
   - `UsageLog.action_type` bound to `actiontype` enum.
 - Project schema parity with migration:
