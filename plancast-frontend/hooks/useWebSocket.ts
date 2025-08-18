@@ -108,9 +108,8 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
         console.error('🔌 WebSocket connection error:', error);
         console.error('🔌 Error details:', {
           message: error.message,
-          description: error.description,
-          context: error.context,
-          type: error.type
+          name: error.name,
+          stack: error.stack
         });
         setConnectionError(error);
         setIsConnected(false);
