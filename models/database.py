@@ -152,7 +152,7 @@ class UsageLog(Base):
     api_endpoint = Column(String(255), nullable=False)
     
     # Processing metrics
-    processing_time = Column(Float)  # Seconds
+    processing_time_seconds = Column("processing_time_seconds", Float)
     file_size_mb = Column(Float)
     credits_used = Column(Integer, default=1)
     

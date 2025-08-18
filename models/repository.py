@@ -221,7 +221,7 @@ class UsageRepository:
             project_id=project_id,
             action_type=action_type,
             api_endpoint=api_endpoint,
-            processing_time=processing_time,
+            processing_time_seconds=processing_time,
             file_size_mb=file_size_mb,
             credits_used=credits_used,
             ip_address=ip_address,
