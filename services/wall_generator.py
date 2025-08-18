@@ -129,11 +129,17 @@ class WallMeshGenerator:
                 if field not in room_data:
                     raise WallGenerationError(f"Room '{room_name}' missing required field: {field}")
                 
-                if not isinstance(room_data[field], (int, float)):
+                value = room_data[field]
+                if not isinstance(value, (int, float)):
                     raise WallGenerationError(f"Room '{room_name}' field '{field}' must be numeric")
                 
-                if room_data[field] <= 0:
-                    raise WallGenerationError(f"Room '{room_name}' field '{field}' must be positive")
+                # Dimensions must be strictly positive; offsets can be zero or positive
+                if field in ['width_feet', 'length_feet', 'area_sqft']:
+                    if value <= 0:
+                        raise WallGenerationError(f"Room '{room_name}' field '{field}' must be positive")
+                else:  # x_offset_feet, y_offset_feet
+                    if value < 0:
+                        raise WallGenerationError(f"Room '{room_name}' field '{field}' must be non-negative")
         
         logger.info(f"✅ Validated {len(scaled_coords.rooms_feet)} rooms and {len(scaled_coords.walls_feet)} wall points")
     
