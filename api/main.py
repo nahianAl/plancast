@@ -285,6 +285,9 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                     )
                 
                 # Send completion WebSocket update
+                print(f"🔍 Sending completion WebSocket update for job {job_id}")
+                print(f"🔍 Result data: {result_data}")
+                
                 await websocket_manager.broadcast_job_update(
                     job_id, 
                     "completed", 
@@ -292,6 +295,8 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                     "3D model conversion completed successfully!",
                     result_data
                 )
+                
+                print(f"✅ Completion WebSocket update sent for job {job_id}")
                 
             except concurrent.futures.TimeoutError:
                 # Processing timed out

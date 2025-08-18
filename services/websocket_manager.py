@@ -276,7 +276,11 @@ class WebSocketManager:
                                  message: Optional[str] = None, result: Optional[Dict] = None):
         """Broadcast job status update to all subscribers."""
         try:
+            print(f"🔍 Broadcasting job update for {job_id}: {status} ({progress}%)")
+            print(f"🔍 Subscribers: {self.job_subscriptions.get(job_id, set())}")
+            
             if job_id not in self.job_subscriptions:
+                print(f"❌ No subscribers found for job {job_id}")
                 return
             
             status_update = {
@@ -288,17 +292,24 @@ class WebSocketManager:
                 'timestamp': datetime.utcnow().isoformat(),
             }
             
+            print(f"🔍 Status update payload: {status_update}")
+            
             # Send to all subscribers
             for sid in self.job_subscriptions[job_id]:
                 try:
+                    print(f"🔍 Sending to subscriber {sid}")
                     await self.sio.emit('job_status', status_update, room=sid)
+                    print(f"✅ Sent to subscriber {sid}")
                 except Exception as e:
                     logger.error(f"Failed to send update to {sid}: {e}")
+                    print(f"❌ Failed to send to {sid}: {e}")
             
             logger.info(f"Broadcasted job update for {job_id}: {status} ({progress}%)")
+            print(f"✅ Broadcasted job update for {job_id}: {status} ({progress}%)")
             
         except Exception as e:
             logger.error(f"Error broadcasting job update for {job_id}: {e}")
+            print(f"❌ Error broadcasting job update for {job_id}: {e}")
     
     async def broadcast_processing_progress(self, job_id: str, step: str, progress: float, 
                                           details: Optional[str] = None):

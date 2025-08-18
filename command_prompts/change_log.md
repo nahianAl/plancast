@@ -79,6 +79,78 @@ Date: 2025-08-18
 - Generated models are served under `/models/{job_id}/...` for preview and download.
 
 
+### Latest Updates (2025-08-18) - CORS FIXES & PROCESSING TIMEOUT IMPROVEMENTS 🚀
+
+**🔧 CRITICAL FIX: CORS Configuration & Processing Timeout Resolution**
+- **CORS Issues Resolved**: Fixed cross-origin communication between frontend (`www.getplancast.com`) and backend (`api.getplancast.com`)
+- **Processing Timeout Fixed**: Resolved 85% stuck issue with real CubiCasa model processing
+- **WebSocket Connection Stability**: Improved WebSocket timeout and connection handling
+
+**Technical Implementation Details:**
+
+**1. CORS Configuration Fixes (`api/main.py`):**
+- **Enhanced CORS Middleware**: Updated to explicitly allow specific origins instead of wildcards
+- **Allowed Origins**: Added comprehensive list including `https://www.getplancast.com`, `https://getplancast.com`, and local development URLs
+- **HTTP Methods**: Explicitly allowed GET, POST, PUT, DELETE, OPTIONS, HEAD methods
+- **Headers Configuration**: Added comprehensive header list including multipart support for file uploads
+- **CORS Preflight Handler**: Added explicit OPTIONS handler for preflight requests with proper CORS headers
+- **Request Logging Middleware**: Added middleware to log all requests and inject CORS headers into responses
+- **Error Handler CORS**: Ensured CORS headers are present even on error responses
+
+**2. Socket.IO CORS Fixes (`services/websocket_manager.py`):**
+- **Specific Origins**: Changed from wildcard `"*"` to specific domain list matching FastAPI CORS
+- **CORS Alignment**: Aligned Socket.IO CORS settings with FastAPI CORS configuration
+- **Enhanced Timeouts**: Increased ping timeout to 60s and ping interval to 25s for longer processing
+- **Buffer Size**: Increased max HTTP buffer size to 100MB for large file handling
+
+**3. Processing Timeout Improvements (`api/main.py`):**
+- **Real Progress Tracking**: Removed artificial `asyncio.sleep(1)` delays that caused fake progress updates
+- **Proper Timeout Handling**: Added 5-minute timeout for real CubiCasa model processing
+- **Timeout Error Handling**: Added graceful timeout error handling with clear error messages
+- **Background Task Optimization**: Improved background processing to use real progress instead of simulated updates
+
+**4. Enhanced Error Handling:**
+- **CORS Headers on Errors**: All error responses now include proper CORS headers
+- **Detailed Logging**: Added comprehensive request logging for debugging CORS issues
+- **Graceful Failures**: Better error messages and cleanup on processing timeouts
+
+**Bug Fixes Resolved:**
+- **CORS Blocked Requests**: Fixed "No 'Access-Control-Allow-Origin' header" errors
+- **WebSocket Connection Failures**: Resolved WebSocket connection errors and polling failures
+- **85% Processing Stuck**: Fixed processing getting stuck at 85% due to artificial progress updates
+- **File Upload Failures**: Resolved multipart form data CORS issues
+- **Real Model Timeout**: Added proper timeout handling for real CubiCasa model (1-3 minutes vs placeholder 5-10 seconds)
+
+**Expected Results:**
+- **No More CORS Errors**: Frontend can now communicate with backend without CORS blocks
+- **Stable WebSocket**: Real-time updates work properly without connection drops
+- **Real Processing Progress**: Progress updates reflect actual processing time (1-3 minutes for real model)
+- **Better User Experience**: Clear error messages and proper timeout handling
+- **File Upload Success**: Multipart form data uploads work correctly
+
+**Deployment Status:**
+- ✅ **CORS Configuration**: Deployed and active
+- ✅ **Processing Timeout**: Fixed and deployed
+- ✅ **WebSocket Stability**: Improved and deployed
+- ✅ **Error Handling**: Enhanced and deployed
+
+**Previous Updates:**
+- Status endpoint: accepts `request`, sanitizes `job_id` (handles encoded `{6}` as `%7B6%7D`), uses `project.output_files`, and returns CORS-friendly JSON on errors.
+- Subscription tier enum alignment: `SubscriptionTier` now matches DB values exactly (`free`/`pro`/`enterprise`); admin bootstrap inserts with `free`.
+- Detached SQLAlchemy instance: capture `project_id` before session closes in `/convert` to prevent refresh errors when scheduling background tasks and building responses.
+- Successful conversion kickoff: `/convert` returns 200, job is created, redirect to preview works, and WebSocket connects for live updates.
+- Runtime dependency fix: added `libmagic1` and `file` packages in `Dockerfile` to satisfy `python-magic`/MIME detection (`failed to find libmagic`).
+- Settings additions: defined `GENERATED_MODELS_DIR`, `USE_Y_UP_FOR_WEB`, and `WEB_OPTIMIZED_GLB` in `config/settings.py` so mesh exporter imports resolve in production.
+- Status endpoint: removed reference to non-existent `started_at` on `Project` when building response.
+- CubiCasa model loading: detect Git LFS pointer files and force re-download of the real model in `CubiCasaService._ensure_model_available()`; mitigates `invalid load key, 'v'` pickle errors.
+- CubiCasa fallback: if download fails or model missing on deploy, copy bundled model from `assets/models` when available; otherwise automatically initialize placeholder model to keep pipeline running (avoids failing jobs on download restrictions).
+- CubiCasa model URL override: service now reads `CUBICASA_MODEL_URL` to download the model from a binary-safe public URL (e.g., GitHub Release/S3/Google Drive `uc?export=download&id=...`).
+- Repository alignment: removed `started_at` usage from `ProjectRepository.update_project_status` to match DB schema; only `completed_at` is set on completion/failure.
+- Small image handling: relaxed strict validation; images under 512px are now auto-upscaled to the minimum dimension during processing (`services/file_processor.py`).
+- Processing fix: pass `job_id` to `CubiCasaService.process_image` from `FloorPlanProcessor` to satisfy the required parameter (`core/floorplan_processor.py`).
+- Room/wall validation: adjusted to allow non-negative room offsets (`x_offset_feet`, `y_offset_feet >= 0`) while keeping dimensions (`width_feet`, `length_feet`, `area_sqft`) strictly positive (`services/room_generator.py`, `services/wall_generator.py`).
+
+
 ### Latest Updates (2025-08-18) - REAL CUBICASA MODEL INTEGRATION COMPLETE 🎉
 
 **🚀 MAJOR BREAKTHROUGH: Real CubiCasa Model Integration Complete**
