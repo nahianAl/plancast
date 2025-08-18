@@ -168,7 +168,7 @@ class WebSocketManager:
                 
                 logger.info(f"Client {sid} subscribed to job {job_id}")
                 
-                # Send current job status
+                # Send current job status immediately
                 await self._send_job_status(job_id, sid)
                 
                 await self.sio.emit('message', {
@@ -218,16 +218,24 @@ class WebSocketManager:
     async def _send_job_status(self, job_id: str, sid: Optional[str] = None):
         """Send current job status to client(s)."""
         try:
+            print(f"🔍 Sending job status for {job_id} to {sid or 'all subscribers'}")
+            
             with get_db_session() as session:
                 project = ProjectRepository.get_project_by_id(session, int(job_id))
                 
                 if not project:
+                    print(f"❌ Project not found for job {job_id}")
                     return
+                
+                print(f"🔍 Project status: {project.status}, progress: {project.progress_percent}")
                 
                 # Build result payload if completed
                 result_payload = None
                 if project.status == ProjectStatus.COMPLETED:
-                    exported_files = project.output_files_json or {}
+                    print(f"🔍 Project completed, building result payload")
+                    exported_files = project.output_files or {}
+                    print(f"🔍 Exported files: {exported_files}")
+                    
                     # Prefer GLB
                     glb_path = exported_files.get('glb')
                     if glb_path:
@@ -242,6 +250,7 @@ class WebSocketManager:
                         relative_url = f"/models/{job_id}/{filename_only}" if first_path else ''
                         public_api_url = os.getenv('PUBLIC_API_URL', '')
                         model_url = f"{public_api_url}{relative_url}" if public_api_url and relative_url else relative_url
+                    
                     result_payload = {
                         'model_url': model_url,
                         'formats': list(exported_files.keys()),
@@ -251,6 +260,7 @@ class WebSocketManager:
                             ) for fmt, p in exported_files.items()
                         }
                     }
+                    print(f"🔍 Result payload: {result_payload}")
 
                 status_update = {
                     'jobId': job_id,
@@ -260,17 +270,24 @@ class WebSocketManager:
                     'result': result_payload,
                 }
                 
+                print(f"🔍 Status update: {status_update}")
+                
                 if sid:
                     # Send to specific client
+                    print(f"🔍 Sending to specific client {sid}")
                     await self.sio.emit('job_status', status_update, room=sid)
+                    print(f"✅ Sent to client {sid}")
                 else:
                     # Send to all subscribers of this job
                     if job_id in self.job_subscriptions:
                         for subscriber_sid in self.job_subscriptions[job_id]:
+                            print(f"🔍 Sending to subscriber {subscriber_sid}")
                             await self.sio.emit('job_status', status_update, room=subscriber_sid)
+                            print(f"✅ Sent to subscriber {subscriber_sid}")
                 
         except Exception as e:
             logger.error(f"Error sending job status for {job_id}: {e}")
+            print(f"❌ Error sending job status for {job_id}: {e}")
     
     async def broadcast_job_update(self, job_id: str, status: str, progress: float = 0, 
                                  message: Optional[str] = None, result: Optional[Dict] = None):
