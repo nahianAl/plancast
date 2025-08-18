@@ -154,11 +154,6 @@ class UsageLog(Base):
     # Processing metrics
     processing_time_seconds = Column("processing_time_seconds", Float)
     file_size_mb = Column(Float)
-    credits_used = Column(Integer, default=1)
-    
-    # Request details
-    ip_address = Column(String(45))  # IPv6 compatible
-    user_agent = Column(Text)
     request_metadata = Column(JSON)
     
     # Timestamp

@@ -223,9 +223,6 @@ class UsageRepository:
             api_endpoint=api_endpoint,
             processing_time_seconds=processing_time,
             file_size_mb=file_size_mb,
-            credits_used=credits_used,
-            ip_address=ip_address,
-            user_agent=user_agent,
             request_metadata=request_metadata
         )
         session.add(usage_log)
