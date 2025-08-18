@@ -173,9 +173,9 @@ export default function PreviewPage() {
               </div>
               
               <div className="h-96 lg:h-[600px] bg-gray-100 dark:bg-gray-900">
-                {isCompleted && jobStatus?.result ? (
+                {isCompleted && jobStatus?.result && jobStatus.result.model_url ? (
                   <ThreeViewer 
-                    modelUrl={jobStatus.result.model_url || "/api/jobs/mock/glb"}
+                    modelUrl={jobStatus.result.model_url}
                     onLoadComplete={() => console.log('3D model loaded')}
                   />
                 ) : (
@@ -192,6 +192,13 @@ export default function PreviewPage() {
                           <Progress value={progress} className="h-3" />
                           <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
                             {jobStatus?.message || 'Processing your model...'}
+                          </p>
+                        </div>
+                      )}
+                      {isCompleted && (!jobStatus?.result || !jobStatus.result.model_url) && (
+                        <div className="max-w-md">
+                          <p className="text-sm text-red-600 dark:text-red-400 mt-2">
+                            Model URL not available. Please try refreshing the page.
                           </p>
                         </div>
                       )}
