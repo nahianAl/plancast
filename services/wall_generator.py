@@ -145,31 +145,28 @@ class WallMeshGenerator:
     
     def _extract_wall_segments_from_rooms(self, scaled_coords: ScaledCoordinates) -> List[Tuple[Tuple[float, float], Tuple[float, float]]]:
         """
-        Extract wall segments from room boundaries.
+        Extract interior wall segments from room boundaries.
         
         Args:
             scaled_coords: Scaled coordinates with room data
             
         Returns:
-            List of wall segments as (start_point, end_point) tuples
+            List of interior wall segments as (start_point, end_point) tuples
         """
         wall_segments = []
         rooms = list(scaled_coords.rooms_feet.items())
         
-        # Generate walls between adjacent rooms
+        # Generate interior walls between adjacent rooms only
         for i, (room1_name, room1_data) in enumerate(rooms):
             for j, (room2_name, room2_data) in enumerate(rooms[i+1:], i+1):
                 # Check if rooms are adjacent (share a wall)
                 shared_wall = self._find_shared_wall(room1_data, room2_data)
                 if shared_wall:
                     wall_segments.append(shared_wall)
-                    logger.debug(f"Found shared wall between {room1_name} and {room2_name}")
+                    logger.debug(f"Found interior wall between {room1_name} and {room2_name}")
         
-        # Add outer walls (building perimeter)
-        outer_walls = self._generate_outer_walls(scaled_coords)
-        wall_segments.extend(outer_walls)
-        
-        logger.info(f"Extracted {len(wall_segments)} wall segments from room boundaries")
+        # Note: We no longer generate outer walls since rooms now have their own walls
+        logger.info(f"Extracted {len(wall_segments)} interior wall segments from room boundaries")
         return wall_segments
     
     def _find_shared_wall(self, room1_data: Dict[str, float], room2_data: Dict[str, float]) -> Optional[Tuple[Tuple[float, float], Tuple[float, float]]]:

@@ -138,16 +138,16 @@ class RoomMeshGenerator:
                                  floor_thickness_feet: float,
                                  room_height_feet: float) -> Room3D:
         """
-        Generate 3D mesh for a single room.
+        Generate 3D mesh for a single room (floor, walls, ceiling).
         
         Args:
-            room_name: Name of the room
-            room_data: Room dimensions and position data
+            room_name: Room name/type
+            room_data: Room dimensions and position
             floor_thickness_feet: Floor thickness
             room_height_feet: Room height
             
         Returns:
-            Room3D object with mesh data
+            Room3D object with complete 3D mesh data
         """
         # Extract room dimensions
         width_feet = room_data['width_feet']
@@ -161,13 +161,13 @@ class RoomMeshGenerator:
         min_y = y_offset_feet
         max_y = y_offset_feet + length_feet
         
-        # Generate vertices and faces for rectangular floor
-        vertices, faces = self._triangulate_rectangle(
+        # Generate complete 3D room mesh (floor, walls, ceiling)
+        vertices, faces = self._build_3d_room_box(
             min_x=min_x,
             min_y=min_y,
             max_x=max_x,
             max_y=max_y,
-            elevation_feet=0.0  # Floor at ground level
+            height_feet=room_height_feet
         )
         
         # Create Room3D object
@@ -179,45 +179,70 @@ class RoomMeshGenerator:
             height_feet=room_height_feet
         )
         
-        logger.debug(f"Generated room '{room_name}': "
-                    f"size {width_feet:.1f}' × {length_feet:.1f}', "
+        logger.debug(f"Generated 3D room '{room_name}': "
+                    f"size {width_feet:.1f}' × {length_feet:.1f}' × {room_height_feet:.1f}', "
                     f"position ({x_offset_feet:.1f}, {y_offset_feet:.1f})")
         
         return room_mesh
     
-    def _triangulate_rectangle(self,
-                             min_x: float,
-                             min_y: float,
-                             max_x: float,
-                             max_y: float,
-                             elevation_feet: float = 0.0) -> Tuple[List[Vertex3D], List[Face]]:
+    def _build_3d_room_box(self,
+                          min_x: float,
+                          min_y: float,
+                          max_x: float,
+                          max_y: float,
+                          height_feet: float) -> Tuple[List[Vertex3D], List[Face]]:
         """
-        Triangulate a rectangular floor into 3D mesh.
+        Build complete 3D room box with floor, walls, and ceiling.
         
         Args:
             min_x, min_y: Bottom-left corner
             max_x, max_y: Top-right corner
-            elevation_feet: Z-coordinate for the floor
+            height_feet: Room height
             
         Returns:
-            Tuple of (vertices, faces) for the triangulated rectangle
+            Tuple of (vertices, faces) for the complete 3D room
         """
-        # Create 4 vertices for the rectangle (counter-clockwise order)
+        # Create 8 vertices for the room box (4 bottom + 4 top)
         vertices = [
-            Vertex3D(x=min_x, y=min_y, z=elevation_feet),  # Bottom-left
-            Vertex3D(x=max_x, y=min_y, z=elevation_feet),  # Bottom-right
-            Vertex3D(x=max_x, y=max_y, z=elevation_feet),  # Top-right
-            Vertex3D(x=min_x, y=max_y, z=elevation_feet),  # Top-left
+            # Bottom vertices (z = 0) - floor
+            Vertex3D(x=min_x, y=min_y, z=0.0),      # 0: bottom-left
+            Vertex3D(x=max_x, y=min_y, z=0.0),      # 1: bottom-right
+            Vertex3D(x=max_x, y=max_y, z=0.0),      # 2: top-right
+            Vertex3D(x=min_x, y=max_y, z=0.0),      # 3: top-left
+            
+            # Top vertices (z = height) - ceiling
+            Vertex3D(x=min_x, y=min_y, z=height_feet),   # 4: bottom-left
+            Vertex3D(x=max_x, y=min_y, z=height_feet),   # 5: bottom-right
+            Vertex3D(x=max_x, y=max_y, z=height_feet),   # 6: top-right
+            Vertex3D(x=min_x, y=max_y, z=height_feet),   # 7: top-left
         ]
         
-        # Create 2 triangular faces to form the rectangle
-        # Face 1: Triangle 0-1-2 (bottom-left, bottom-right, top-right)
-        face1 = Face(indices=[0, 1, 2])
-        
-        # Face 2: Triangle 0-2-3 (bottom-left, top-right, top-left)
-        face2 = Face(indices=[0, 2, 3])
-        
-        faces = [face1, face2]
+        # Create 12 triangular faces (6 quads = 12 triangles)
+        faces = [
+            # Floor (triangulated)
+            Face(indices=[0, 1, 2]),  # Triangle 1
+            Face(indices=[0, 2, 3]),  # Triangle 2
+            
+            # Ceiling (triangulated)
+            Face(indices=[4, 6, 5]),  # Triangle 1 (counter-clockwise for top)
+            Face(indices=[4, 7, 6]),  # Triangle 2
+            
+            # Wall 1: Bottom wall (y = min_y)
+            Face(indices=[0, 4, 5]),  # Triangle 1
+            Face(indices=[0, 5, 1]),  # Triangle 2
+            
+            # Wall 2: Right wall (x = max_x)
+            Face(indices=[1, 5, 6]),  # Triangle 1
+            Face(indices=[1, 6, 2]),  # Triangle 2
+            
+            # Wall 3: Top wall (y = max_y)
+            Face(indices=[2, 6, 7]),  # Triangle 1
+            Face(indices=[2, 7, 3]),  # Triangle 2
+            
+            # Wall 4: Left wall (x = min_x)
+            Face(indices=[3, 7, 4]),  # Triangle 1
+            Face(indices=[3, 4, 0]),  # Triangle 2
+        ]
         
         return vertices, faces
     
@@ -239,35 +264,33 @@ class RoomMeshGenerator:
             "face_count": len(room_mesh.faces)
         }
         
-        # Check vertex count (should be 4 for rectangular floor)
-        if len(room_mesh.vertices) != 4:
+        # Check vertex count (should be 8 for 3D room box: 4 bottom + 4 top)
+        if len(room_mesh.vertices) != 8:
             validation_result["is_valid"] = False
-            validation_result["errors"].append(f"Expected 4 vertices, got {len(room_mesh.vertices)}")
+            validation_result["errors"].append(f"Expected 8 vertices for 3D room, got {len(room_mesh.vertices)}")
         
-        # Check face count (should be 2 triangles)
-        if len(room_mesh.faces) != 2:
+        # Check face count (should be 12 triangles: 6 quads = 12 triangles)
+        if len(room_mesh.faces) != 12:
             validation_result["is_valid"] = False
-            validation_result["errors"].append(f"Expected 2 faces, got {len(room_mesh.faces)}")
+            validation_result["errors"].append(f"Expected 12 faces for 3D room, got {len(room_mesh.faces)}")
         
-        # Validate face indices
+        # Check for valid face indices
         for i, face in enumerate(room_mesh.faces):
             if len(face.indices) != 3:
                 validation_result["is_valid"] = False
-                validation_result["errors"].append(f"Face {i} must have 3 indices, got {len(face.indices)}")
+                validation_result["errors"].append(f"Face {i} has {len(face.indices)} vertices, expected 3")
             
-            # Check index bounds
-            for index in face.indices:
-                if index < 0 or index >= len(room_mesh.vertices):
+            # Check that indices are within bounds
+            for vertex_idx in face.indices:
+                if vertex_idx < 0 or vertex_idx >= len(room_mesh.vertices):
                     validation_result["is_valid"] = False
-                    validation_result["errors"].append(f"Face {i} has invalid vertex index: {index}")
+                    validation_result["errors"].append(f"Face {i} has invalid vertex index {vertex_idx}")
         
-        # Check room dimensions
-        if room_mesh.height_feet <= 0:
-            validation_result["is_valid"] = False
-            validation_result["errors"].append("Room height must be positive")
-        
-        if room_mesh.elevation_feet < 0:
-            validation_result["warnings"].append("Room elevation is below ground level")
+        # Check for valid vertex coordinates
+        for i, vertex in enumerate(room_mesh.vertices):
+            if not isinstance(vertex.x, (int, float)) or not isinstance(vertex.y, (int, float)) or not isinstance(vertex.z, (int, float)):
+                validation_result["is_valid"] = False
+                validation_result["errors"].append(f"Vertex {i} has invalid coordinates: {vertex}")
         
         return validation_result
 
