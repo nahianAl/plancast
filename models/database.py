@@ -66,7 +66,10 @@ class User(Base):
     first_name = Column(String(100))
     last_name = Column(String(100))
     company = Column(String(255))
-    subscription_tier = Column(Enum(SubscriptionTier), default=SubscriptionTier.FREE)
+    subscription_tier = Column(
+        Enum(SubscriptionTier, values_callable=lambda x: [e.value for e in x], name="subscriptiontier"),
+        default=SubscriptionTier.FREE.value
+    )
     api_key = Column(String(255), unique=True, index=True)
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
@@ -96,7 +99,10 @@ class Project(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     filename = Column(String(255), nullable=False)
     original_filename = Column(String(255), nullable=False)
-    status = Column(Enum(ProjectStatus), default=ProjectStatus.PENDING)
+    status = Column(
+        Enum(ProjectStatus, values_callable=lambda x: [e.value for e in x], name="projectstatus"),
+        default=ProjectStatus.PENDING.value
+    )
     
     # File information
     input_file_path = Column(String(500), nullable=False)
@@ -139,7 +145,10 @@ class UsageLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
-    action_type = Column(Enum(ActionType), nullable=False)
+    action_type = Column(
+        Enum(ActionType, values_callable=lambda x: [e.value for e in x], name="actiontype"),
+        nullable=False
+    )
     api_endpoint = Column(String(255), nullable=False)
     
     # Processing metrics
