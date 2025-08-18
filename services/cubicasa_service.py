@@ -39,6 +39,21 @@ class DependencyError(Exception):
     pass
 
 
+# Global model instance to avoid reinitializing for every job
+_global_cubicasa_service = None
+
+def get_cubicasa_service() -> 'CubiCasaService':
+    """
+    Get the global CubiCasa service instance.
+    This ensures the model is only loaded once and reused across jobs.
+    """
+    global _global_cubicasa_service
+    if _global_cubicasa_service is None:
+        logger.info("Initializing global CubiCasa service...")
+        _global_cubicasa_service = CubiCasaService()
+        logger.info("Global CubiCasa service initialized successfully")
+    return _global_cubicasa_service
+
 class CubiCasaService:
     """
     Production CubiCasa5K service with robust error handling and fallback systems.
@@ -55,13 +70,25 @@ class CubiCasaService:
     MODEL_URL = "https://drive.google.com/uc?export=download&id=1uOjLlp7n0mrEcSAmAhcdazWF4ST9rzBB"
     MODEL_FILENAME = "model_best_val_loss_var.pkl"
     
-    def __init__(self, models_dir: str = "assets/models"):
+    def __init__(self, models_dir: str = None):
         """
         Initialize CubiCasa5K service.
         
         Args:
-            models_dir: Directory to store model files
+            models_dir: Directory to store model files (defaults to persistent storage on Railway)
         """
+        # Use Railway's persistent storage if available, otherwise fallback to local
+        if models_dir is None:
+            # Try Railway's persistent volume first
+            railway_persistent = os.getenv("RAILWAY_PERSISTENT_DIR", "/data")
+            if os.path.exists(railway_persistent):
+                models_dir = os.path.join(railway_persistent, "models")
+                logger.info(f"Using Railway persistent storage: {models_dir}")
+            else:
+                # Fallback to local storage
+                models_dir = "assets/models"
+                logger.info(f"Using local storage: {models_dir}")
+        
         self.models_dir = Path(models_dir)
         self.models_dir.mkdir(parents=True, exist_ok=True)
         
@@ -530,36 +557,3 @@ class CubiCasaService:
             })
         
         return status
-
-
-# Singleton instance for global use
-_cubicasa_service: Optional[CubiCasaService] = None
-
-
-def get_cubicasa_service() -> CubiCasaService:
-    """
-    Get the global CubiCasa5K service instance.
-    
-    Returns:
-        CubiCasaService instance
-    """
-    global _cubicasa_service
-    if _cubicasa_service is None:
-        _cubicasa_service = CubiCasaService()
-    return _cubicasa_service
-
-
-# Convenience function for direct use
-def process_floor_plan_image(image_bytes: bytes, job_id: str) -> CubiCasaOutput:
-    """
-    Process a floor plan image with CubiCasa5K.
-    
-    Args:
-        image_bytes: Raw image data
-        job_id: Processing job ID
-        
-    Returns:
-        CubiCasaOutput with extracted data
-    """
-    service = get_cubicasa_service()
-    return service.process_image(image_bytes, job_id)

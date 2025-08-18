@@ -11,6 +11,7 @@ import time
 import uuid
 from typing import List, Optional, Dict, Any
 import logging
+import os
 
 from models.data_structures import (
     ProcessingJob,
@@ -50,7 +51,9 @@ class FloorPlanProcessor:
     def __init__(self):
         """Initialize the floor plan processor with all services."""
         self.file_processor = FileProcessor()
-        self.cubicasa_service = CubiCasaService()
+        # Use global CubiCasa service to avoid reinitializing model for every job
+        from services.cubicasa_service import get_cubicasa_service
+        self.cubicasa_service = get_cubicasa_service()
         self.coordinate_scaler = CoordinateScaler()
         self.room_generator = RoomMeshGenerator()
         self.wall_generator = WallMeshGenerator()
@@ -63,7 +66,7 @@ class FloorPlanProcessor:
                          filename: str,
                          scale_reference: Optional[Dict[str, Any]] = None,
                          export_formats: List[str] = None,
-                         output_dir: str = "output/generated_models") -> ProcessingJob:
+                         output_dir: str = None) -> ProcessingJob:
         """
         Process a floor plan through the complete pipeline.
         
@@ -72,7 +75,7 @@ class FloorPlanProcessor:
             filename: Original filename
             scale_reference: Optional scaling reference for coordinate conversion
             export_formats: List of export formats (glb, obj, stl, fbx, skp)
-            output_dir: Output directory for generated files
+            output_dir: Output directory for generated files (defaults to persistent storage)
             
         Returns:
             ProcessingJob with complete results and status
@@ -80,6 +83,14 @@ class FloorPlanProcessor:
         Raises:
             FloorPlanProcessingError: If processing fails at any step
         """
+        # Use persistent storage if available, otherwise fallback to local
+        if output_dir is None:
+            railway_persistent = os.getenv("RAILWAY_PERSISTENT_DIR", "/data")
+            if os.path.exists(railway_persistent):
+                output_dir = os.path.join(railway_persistent, "output", "generated_models")
+            else:
+                output_dir = "output/generated_models"
+        
         # Initialize job
         job_id = str(uuid.uuid4())
         job = ProcessingJob(
