@@ -95,9 +95,18 @@ export default function UploadPage() {
         >
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
             Convert Your Floor Plan
+            {/* TEMPORARY: Test Pipeline Indicator */}
+            <Badge variant="secondary" className="ml-4 text-xs">
+              TEST PIPELINE
+            </Badge>
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Upload a JPG, PNG, or PDF floor plan and get a professional 3D model in minutes
+            {/* TEMPORARY: Test Pipeline Notice */}
+            <br />
+            <span className="text-sm text-orange-600 font-medium">
+              ⚠️ Currently running simplified test pipeline (no scaling/cutouts)
+            </span>
           </p>
         </motion.div>
 

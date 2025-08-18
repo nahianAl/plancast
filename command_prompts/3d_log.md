@@ -307,13 +307,30 @@ CubiCasa Output → Simple Room Generation → Simple Wall Generation → Basic 
 - ✅ **CubiCasa Detection Working**: 1 room, 132 wall coordinates detected
 - ✅ **No More Gibberish**: Real 3D models with proper geometry
 
+**✅ TEMPORARY PIPELINE SWAP COMPLETED**
+
+**Changes Made to Swap Test Pipeline**:
+- **Backend (api/main.py)**:
+  - ✅ Replaced `FloorPlanProcessor` with `SimpleTestPipeline` in background task
+  - ✅ Changed `process_floorplan()` to `process_test_image()` 
+  - ✅ Added file copying from test output to `/models/{job_id}/` for frontend access
+  - ✅ Added "pipeline": "simplified_test" to result metadata
+  - ✅ Updated completion message to indicate test pipeline
+
+- **Frontend**:
+  - ✅ Added "TEST PIPELINE" badge to upload page title
+  - ✅ Added warning notice about simplified pipeline (no scaling/cutouts)
+  - ✅ Added test pipeline notice to preview page
+
 **Next Steps to Complete Full Pipeline**:
 1. ✅ **Core 3D generation working** - Simplified pipeline proven
-2. **Gradually reintegrate coordinate scaling** into working pipeline
-3. **Add back door/window cutouts** 
-4. **Restore enhanced validation**
-5. **Test complete enhanced pipeline**
-6. **Deploy fixed pipeline to production**
+2. ✅ **Temporary pipeline swap completed** - Test pipeline now runs as main pipeline
+3. **Gradually reintegrate coordinate scaling** into working pipeline
+4. **Add back door/window cutouts** 
+5. **Restore enhanced validation**
+6. **Test complete enhanced pipeline**
+7. **Deploy fixed pipeline to production**
+8. **REMOVE TEMPORARY CHANGES** - Revert to main pipeline after fixing core issues
 
 ---
 

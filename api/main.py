@@ -35,6 +35,7 @@ from models.repository import ProjectRepository, UsageRepository, UserRepository
 from utils.validators import PlanCastValidator, ValidationError, SecurityError
 from services.websocket_manager import websocket_manager
 from services.coordinate_scaler import CoordinateScaler
+from shutil import copy2
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -187,11 +188,12 @@ def get_db():
 async def process_floorplan_background(job_id: str, file_content: bytes, filename: str, export_formats: str):
     """Background task for processing floor plan files with real-time updates."""
     try:
-        # Import the actual FloorPlanProcessor
-        from core.floorplan_processor import FloorPlanProcessor
+        # TEMPORARY: Use simplified test pipeline instead of main pipeline
+        # TODO: REMOVE THIS - Replace with main pipeline after fixing core issues
+        from test_pipeline_simple import SimpleTestPipeline
         
-        # Initialize the processor
-        processor = FloorPlanProcessor()
+        # Initialize the simplified test processor
+        processor = SimpleTestPipeline()
         
         # Parse export formats
         formats_list = [fmt.strip() for fmt in export_formats.split(',') if fmt.strip()]
@@ -223,16 +225,16 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                 message
             )
         
-        # Run the actual FloorPlan processing with real progress tracking
-        await progress_callback("ai_analysis", 10, "Starting AI analysis...")
+        # TEMPORARY: Run simplified test pipeline instead of main pipeline
+        # TODO: REMOVE THIS - Replace with main pipeline after fixing core issues
+        await progress_callback("ai_analysis", 10, "Starting simplified test pipeline...")
         
-        # Process the floor plan with timeout handling
+        # Process the floor plan with simplified test pipeline
         def run_processing():
-            return processor.process_floorplan(
+            return processor.process_test_image(
                 file_content=file_content,
                 filename=filename,
-                export_formats=formats_list,
-                output_dir=f"output/generated_models/{job_id}"
+                export_formats=formats_list
             )
         
         # Run the processing in a thread pool with timeout
@@ -244,29 +246,38 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                 # Wait for processing with a longer timeout (5 minutes for real model)
                 processing_result = future.result(timeout=300)  # 5 minutes timeout
                 
-                # Extract result data
+                # TEMPORARY: Handle simplified test pipeline results
+                # TODO: REMOVE THIS - Replace with main pipeline result handling after fixing core issues
                 if processing_result.status == ProcessingStatus.COMPLETED and processing_result.exported_files:
-                    print(f"🔍 Processing completed successfully for job {job_id}")
-                    print(f"🔍 Exported files from processing: {processing_result.exported_files}")
+                    print(f"🔍 Simplified test pipeline completed successfully for job {job_id}")
+                    print(f"🔍 Exported files from test pipeline: {processing_result.exported_files}")
+                    
+                    # Copy test pipeline files to generated_models/{job_id} for frontend access
+                    job_models_dir = Path(f"output/generated_models/{job_id}")
+                    job_models_dir.mkdir(parents=True, exist_ok=True)
                     
                     # Build URLs to exported files under /models/{job_id}/
                     exported_files = {}
                     for fmt, path in (processing_result.exported_files or {}).items():
                         try:
-                            filename_only = Path(path).name
-                            relative_url = f"/models/{job_id}/{filename_only}"
+                            src = Path(path)
+                            dst = job_models_dir / src.name
+                            copy2(src, dst)
+                            relative_url = f"/models/{job_id}/{dst.name}"
                             exported_files[fmt] = (
                                 f"{PUBLIC_API_URL}{relative_url}" if PUBLIC_API_URL else relative_url
                             )
-                            print(f"🔍 Built URL for {fmt}: {exported_files[fmt]}")
+                            print(f"🔍 Copied and built URL for {fmt}: {exported_files[fmt]}")
                         except Exception as e:
-                            print(f"❌ Error building URL for {fmt}: {e}")
+                            print(f"❌ Error copying/building URL for {fmt}: {e}")
                             # Fallback to raw path if something goes wrong
                             exported_files[fmt] = path
 
                     # Choose GLB as primary model URL if available
                     glb_url = exported_files.get("glb", next(iter(exported_files.values()), ""))
 
+                    # TEMPORARY: Build result data for simplified test pipeline
+                    # TODO: REMOVE THIS - Replace with main pipeline result data after fixing core issues
                     result_data = {
                         "model_url": glb_url,
                         "preview_url": "",
@@ -274,6 +285,7 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                         "processing_time": (processing_result.total_processing_time() or 0.0),
                         "file_size_mb": sum(os.path.getsize(p) for p in (processing_result.exported_files or {}).values()) / (1024 * 1024) if processing_result.exported_files else 0.0,
                         "output_files": exported_files,
+                        "pipeline": "simplified_test",  # TEMPORARY: Mark as test pipeline
                     }
                     
                     print(f"🔍 Final exported_files for database: {exported_files}")
@@ -302,11 +314,13 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                 print(f"🔍 Sending completion WebSocket update for job {job_id}")
                 print(f"🔍 Result data: {result_data}")
                 
+                # TEMPORARY: Send completion message for simplified test pipeline
+                # TODO: REMOVE THIS - Replace with main pipeline message after fixing core issues
                 await websocket_manager.broadcast_job_update(
                     job_id, 
                     "completed", 
                     100, 
-                    "3D model conversion completed successfully!",
+                    "Simplified test pipeline completed successfully! (No scaling/cutouts)",
                     result_data
                 )
                 
@@ -334,6 +348,96 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
             "failed", 
             0, 
             f"Processing failed: {error_message}"
+        )
+
+async def process_test_pipeline_background(job_id: str, file_content: bytes, filename: str, export_formats: str):
+    """Background task to run the simplified test pipeline (no scaling/cutouts)."""
+    try:
+        # Lazy import to keep module load light
+        from test_pipeline_simple import SimpleTestPipeline
+        from pathlib import Path as _Path
+
+        # Parse export formats
+        formats_list = [fmt.strip() for fmt in export_formats.split(',') if fmt.strip()]
+
+        # Run simplified pipeline
+        pipeline = SimpleTestPipeline()
+        result_job = pipeline.process_test_image(
+            file_content=file_content,
+            filename=filename,
+            export_formats=formats_list or ["glb", "obj"]
+        )
+
+        if result_job.status != ProcessingStatus.COMPLETED or not result_job.exported_files:
+            raise Exception(result_job.error_message or "Test pipeline failed with no output files")
+
+        # Copy exported files to generated_models/{job_id} so they're served under /models
+        job_models_dir = Path(f"output/generated_models/{job_id}")
+        job_models_dir.mkdir(parents=True, exist_ok=True)
+
+        exported_files: Dict[str, str] = {}
+        for fmt, src_path in (result_job.exported_files or {}).items():
+            try:
+                src = Path(src_path)
+                dst = job_models_dir / src.name
+                copy2(src, dst)
+                relative_url = f"/models/{job_id}/{dst.name}"
+                exported_files[fmt] = f"{PUBLIC_API_URL}{relative_url}" if PUBLIC_API_URL else relative_url
+            except Exception as copy_err:
+                print(f"❌ Failed to copy test export {fmt} from {src_path}: {copy_err}")
+
+        if not exported_files:
+            raise Exception("Test pipeline produced files but failed to copy them to models directory")
+
+        # Build result payload
+        glb_url = exported_files.get("glb", next(iter(exported_files.values()), ""))
+        result_data = {
+            "model_url": glb_url,
+            "formats": list(exported_files.keys()),
+            "output_files": exported_files,
+            "pipeline": "simplified_test",
+            "processing_time": (result_job.total_processing_time() or 0.0),
+        }
+
+        # Update DB
+        with get_db_session() as session:
+            ProjectRepository.update_project_status(
+                session,
+                int(job_id),
+                ProjectStatus.COMPLETED,
+                current_step="completed",
+                progress_percent=100,
+                processing_time_seconds=result_job.total_processing_time() or 0.0,
+                output_files=exported_files,
+                processing_metadata={
+                    "result": result_data,
+                    "pipeline": "simplified_test"
+                }
+            )
+
+        # Notify via websockets
+        await websocket_manager.broadcast_job_update(
+            job_id,
+            "completed",
+            100,
+            "Simplified test pipeline completed successfully!",
+            result_data
+        )
+
+    except Exception as e:
+        error_message = str(e)
+        with get_db_session() as session:
+            ProjectRepository.update_project_status(
+                session,
+                int(job_id),
+                ProjectStatus.FAILED,
+                error_message=error_message
+            )
+        await websocket_manager.broadcast_job_update(
+            job_id,
+            "failed",
+            0,
+            f"Test pipeline failed: {error_message}"
         )
 
 # API Endpoints
@@ -464,6 +568,98 @@ async def convert_floorplan(
         import traceback
         tb = traceback.format_exc()
         print(f"❌ Unexpected error in /convert: {str(e)}")
+        print(f"Traceback: {tb}")
+        origin = request.headers.get('origin', 'https://www.getplancast.com')
+        response = JSONResponse(
+            status_code=500,
+            content=ErrorResponse(error="Internal server error", message=str(e)).dict()
+        )
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Expose-Headers"] = "*"
+        return response
+
+@app.post("/convert-test", response_model=ConvertResponse)
+async def convert_floorplan_test(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    export_formats: str = "glb,obj"
+):
+    """Upload endpoint to run the simplified test pipeline (no scaling/cutouts)."""
+    try:
+        # Read file content
+        file_content = await file.read()
+
+        # Minimal validation (reuse existing validator for security)
+        try:
+            validation_result = validator.validate_upload_file(file_content, file.filename)
+            if not validation_result['is_valid']:
+                raise HTTPException(status_code=400, detail=f"File validation failed: {validation_result['errors']}")
+        except (ValidationError, SecurityError) as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+        # Create project in DB
+        from sqlalchemy import text as sql_text
+        with get_db_session() as session:
+            row = session.execute(
+                sql_text("SELECT id FROM users WHERE email=:email LIMIT 1"),
+                {"email": "admin@plancast.com"}
+            ).first()
+            if row and len(row) > 0:
+                user_id = int(row[0])
+            else:
+                inserted = session.execute(
+                    sql_text(
+                        """
+                        INSERT INTO users (email, password_hash, subscription_tier, is_active, created_at)
+                        VALUES (:email, :password_hash, 'free', true, NOW())
+                        RETURNING id
+                        """
+                    ),
+                    {"email": "admin@plancast.com", "password_hash": "placeholder"}
+                ).first()
+                session.commit()
+                user_id = int(inserted[0])
+
+            project = ProjectRepository.create_project(
+                session=session,
+                user_id=user_id,
+                filename=f"test_{uuid.uuid4().hex[:8]}",
+                original_filename=file.filename,
+                input_file_path=f"temp/uploads/{file.filename}",
+                file_size_mb=len(file_content) / (1024 * 1024),
+                file_format=validation_result.get("file_format", "jpg")
+            )
+            project_id = int(project.id)
+
+        # Launch background task for simplified pipeline
+        background_tasks.add_task(
+            process_test_pipeline_background,
+            str(project_id),
+            file_content,
+            file.filename,
+            export_formats
+        )
+
+        origin = request.headers.get('origin', 'https://www.getplancast.com')
+        response = JSONResponse(content=ConvertResponse(
+            job_id=str(project_id),
+            filename=file.filename,
+            file_size_bytes=len(file_content)
+        ).model_dump())
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"❌ Unexpected error in /convert-test: {str(e)}")
         print(f"Traceback: {tb}")
         origin = request.headers.get('origin', 'https://www.getplancast.com')
         response = JSONResponse(

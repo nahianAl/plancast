@@ -152,6 +152,16 @@ export default function PreviewPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* TEMPORARY: Test Pipeline Notice */}
+        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <span className="text-orange-600 font-medium">⚠️ Test Pipeline Active</span>
+            <span className="text-sm text-orange-600">
+              Running simplified pipeline (no coordinate scaling or door/window cutouts)
+            </span>
+          </div>
+        </div>
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* 3D Viewer - Main Content */}
           <div className="lg:col-span-2">
