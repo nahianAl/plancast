@@ -533,7 +533,7 @@ async def get_job_status(job_id: str, request: Request):
                     )
                 ),
                 created_at=project.created_at.timestamp() if project.created_at else time.time(),
-                started_at=project.started_at.timestamp() if project.started_at else None,
+                started_at=None,
                 completed_at=project.completed_at.timestamp() if project.completed_at else None,
                 result=result_payload
             )

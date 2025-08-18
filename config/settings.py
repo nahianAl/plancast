@@ -16,6 +16,12 @@ DEFAULT_EXPORT_FORMATS = ["glb", "obj", "stl"]
 # Default units
 DEFAULT_UNITS = "feet"
 
+# Web/Export configuration
+# Directory where generated models are written (alias for EXPORT_DIR)
+GENERATED_MODELS_DIR = os.getenv("GENERATED_MODELS_DIR", "output/generated_models")
+USE_Y_UP_FOR_WEB = True
+WEB_OPTIMIZED_GLB = True
+
 # API settings
 API_VERSION = "1.0.0"
 API_TITLE = "PlanCast API"
