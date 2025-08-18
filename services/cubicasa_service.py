@@ -422,68 +422,46 @@ class CubiCasaService:
     
     def process_image(self, image_bytes: bytes, job_id: str) -> CubiCasaOutput:
         """
-        Main processing method for floor plan images.
+        Process floor plan image with CubiCasa5K model.
         
         Args:
-            image_bytes: Raw image data
-            job_id: Processing job ID for logging
+            image_bytes: Raw image bytes
+            job_id: Job ID for logging
             
         Returns:
-            CubiCasaOutput with extracted floor plan data
+            CubiCasaOutput with detected rooms and walls
             
         Raises:
             CubiCasaError: If processing fails
         """
-        if not self.model_loaded:
-            raise CubiCasaError("CubiCasa5K model not loaded")
-        
-        start_time = time.time()
-        
         try:
-            # Get image dimensions for logging
-            temp_image = Image.open(BytesIO(image_bytes))
-            image_dims = temp_image.size
-            file_size = len(image_bytes)
-            
-            cubicasa_logger.log_processing_start(job_id, image_dims, file_size)
+            logger.info(f"🚀 Starting CubiCasa5K processing for job {job_id}")
+            start_time = time.time()
             
             # Preprocess image
+            logger.info(f"📸 Preprocessing image for job {job_id}")
             image_tensor, original_size = self._preprocess_image(image_bytes)
+            logger.info(f"✅ Image preprocessed: {original_size} -> {image_tensor.shape}")
             
             # Run inference
-            logger.info(f"Running CubiCasa5K inference for job {job_id}")
+            logger.info(f"🤖 Running CubiCasa5K inference for job {job_id}")
             outputs = self._run_inference(image_tensor)
+            logger.info(f"✅ Model inference completed: {outputs.shape}")
             
             # Post-process outputs
+            logger.info(f"🔧 Post-processing outputs for job {job_id}")
             result = self._postprocess_outputs(outputs, original_size)
             
-            # Update processing time
             processing_time = time.time() - start_time
-            result.processing_time = processing_time
-            
-            # Log success
-            wall_count = len(result.wall_coordinates)
-            room_count = len(result.room_bounding_boxes)
-            
-            cubicasa_logger.log_processing_result(
-                job_id, True, processing_time, wall_count, room_count
-            )
-            
-            logger.info(f"CubiCasa5K processing completed for job {job_id}: "
-                       f"{wall_count} wall points, {room_count} rooms in {processing_time:.2f}s")
+            logger.info(f"🎉 CubiCasa5K processing completed for job {job_id} in {processing_time:.2f}s")
+            logger.info(f"   Wall coordinates: {len(result.wall_coordinates)}")
+            logger.info(f"   Room bounding boxes: {len(result.room_bounding_boxes)}")
             
             return result
             
         except Exception as e:
-            processing_time = time.time() - start_time
-            error_msg = str(e)
-            
-            cubicasa_logger.log_processing_result(
-                job_id, False, processing_time, error=error_msg
-            )
-            
-            logger.error(f"CubiCasa5K processing failed for job {job_id}: {error_msg}")
-            raise CubiCasaError(f"Processing failed: {error_msg}")
+            logger.error(f"❌ CubiCasa5K processing failed for job {job_id}: {str(e)}")
+            raise CubiCasaError(f"Failed to process image: {str(e)}")
     
     def health_check(self) -> Dict[str, Any]:
         """

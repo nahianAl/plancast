@@ -29,12 +29,17 @@ class WebSocketManager:
     """Manages WebSocket connections and real-time updates."""
     
     def __init__(self):
-        # Create Socket.IO server
+        # Create Socket.IO server with longer timeouts for real model processing
         self.sio = socketio.AsyncServer(
             async_mode='asgi',
             cors_allowed_origins="*",
             logger=True,
-            engineio_logger=True
+            engineio_logger=True,
+            ping_timeout=60,  # Increased from default 20
+            ping_interval=25,  # Increased from default 25
+            max_http_buffer_size=1e8,  # 100MB buffer for large files
+            allow_upgrades=True,
+            transports=['websocket', 'polling']
         )
         
         # Connection tracking

@@ -148,11 +148,10 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                 message
             )
         
-        # Run the actual FloorPlan processing
+        # Run the actual FloorPlan processing with real progress tracking
         await progress_callback("ai_analysis", 10, "Starting AI analysis...")
         
-        # Process the floor plan (this runs in a thread to avoid blocking)
-        
+        # Process the floor plan with timeout handling
         def run_processing():
             return processor.process_floorplan(
                 file_content=file_content,
@@ -161,82 +160,70 @@ async def process_floorplan_background(job_id: str, file_content: bytes, filenam
                 output_dir=f"output/generated_models/{job_id}"
             )
         
-        # Run the processing in a thread pool to avoid blocking
+        # Run the processing in a thread pool with timeout
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            # Submit the processing job
+            # Submit the processing job with a longer timeout for real model
             future = executor.submit(run_processing)
             
-            # Monitor progress while processing
-            await progress_callback("ai_analysis", 25, "Analyzing floor plan with CubiCasa AI...")
-            await asyncio.sleep(1)
-            
-            await progress_callback("coordinate_scaling", 40, "Scaling coordinates and dimensions...")
-            await asyncio.sleep(1)
-            
-            await progress_callback("room_generation", 55, "Generating room meshes...")
-            await asyncio.sleep(1)
-            
-            await progress_callback("wall_generation", 70, "Creating wall structures...")
-            await asyncio.sleep(1)
-            
-            await progress_callback("building_assembly", 85, "Assembling 3D building model...")
-            await asyncio.sleep(1)
-            
-            await progress_callback("export_preparation", 95, "Preparing export files...")
-            
-            # Get the result
-            processing_result = future.result()
-        
-        # Extract result data
-        if processing_result.status == ProcessingStatus.COMPLETED and processing_result.exported_files:
-            # Build URLs to exported files under /models/{job_id}/
-            exported_files = {}
-            for fmt, path in (processing_result.exported_files or {}).items():
-                try:
-                    filename_only = Path(path).name
-                    relative_url = f"/models/{job_id}/{filename_only}"
-                    exported_files[fmt] = (
-                        f"{PUBLIC_API_URL}{relative_url}" if PUBLIC_API_URL else relative_url
+            try:
+                # Wait for processing with a longer timeout (5 minutes for real model)
+                processing_result = future.result(timeout=300)  # 5 minutes timeout
+                
+                # Extract result data
+                if processing_result.status == ProcessingStatus.COMPLETED and processing_result.exported_files:
+                    # Build URLs to exported files under /models/{job_id}/
+                    exported_files = {}
+                    for fmt, path in (processing_result.exported_files or {}).items():
+                        try:
+                            filename_only = Path(path).name
+                            relative_url = f"/models/{job_id}/{filename_only}"
+                            exported_files[fmt] = (
+                                f"{PUBLIC_API_URL}{relative_url}" if PUBLIC_API_URL else relative_url
+                            )
+                        except Exception:
+                            # Fallback to raw path if something goes wrong
+                            exported_files[fmt] = path
+
+                    # Choose GLB as primary model URL if available
+                    glb_url = exported_files.get("glb", next(iter(exported_files.values()), ""))
+
+                    result_data = {
+                        "model_url": glb_url,
+                        "preview_url": "",
+                        "formats": list(exported_files.keys()),
+                        "processing_time": (processing_result.total_processing_time() or 0.0),
+                        "file_size_mb": sum(os.path.getsize(p) for p in (processing_result.exported_files or {}).values()) / (1024 * 1024) if processing_result.exported_files else 0.0,
+                        "output_files": exported_files,
+                    }
+                else:
+                    raise Exception(f"Processing failed: {processing_result.error_message}")
+                
+                with get_db_session() as session:
+                    ProjectRepository.update_project_status(
+                        session, 
+                        int(job_id), 
+                        ProjectStatus.COMPLETED,
+                        current_step="completed",
+                        progress_percent=100,
+                        processing_time_seconds=processing_result.total_processing_time() or 0.0,
+                        output_files_json=exported_files,
+                        processing_metadata={"result": result_data}
                     )
-                except Exception:
-                    # Fallback to raw path if something goes wrong
-                    exported_files[fmt] = path
-
-            # Choose GLB as primary model URL if available
-            glb_url = exported_files.get("glb", next(iter(exported_files.values()), ""))
-
-            result_data = {
-                "model_url": glb_url,
-                "preview_url": "",
-                "formats": list(exported_files.keys()),
-                "processing_time": (processing_result.total_processing_time() or 0.0),
-                "file_size_mb": sum(os.path.getsize(p) for p in (processing_result.exported_files or {}).values()) / (1024 * 1024) if processing_result.exported_files else 0.0,
-                "output_files": exported_files,
-            }
-        else:
-            raise Exception(f"Processing failed: {processing_result.error_message}")
-        
-        with get_db_session() as session:
-            ProjectRepository.update_project_status(
-                session, 
-                int(job_id), 
-                ProjectStatus.COMPLETED,
-                current_step="completed",
-                progress_percent=100,
-                processing_time_seconds=5.0,
-                output_files_json=exported_files,
-                processing_metadata={"result": result_data}
-            )
-        
-        # Send completion WebSocket update
-        await websocket_manager.broadcast_job_update(
-            job_id, 
-            "completed", 
-            100, 
-            "3D model conversion completed successfully!",
-            result_data
-        )
-            
+                
+                # Send completion WebSocket update
+                await websocket_manager.broadcast_job_update(
+                    job_id, 
+                    "completed", 
+                    100, 
+                    "3D model conversion completed successfully!",
+                    result_data
+                )
+                
+            except concurrent.futures.TimeoutError:
+                # Processing timed out
+                future.cancel()
+                raise Exception("Processing timed out after 5 minutes. The floor plan may be too complex or the server is under heavy load.")
+                
     except Exception as e:
         # Mark as failed and send error update
         error_message = str(e)
