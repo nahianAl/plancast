@@ -41,7 +41,7 @@ from shutil import copy2
 app = FastAPI(
     title="PlanCast API",
     description="AI-powered floor plan to 3D model conversion service",
-    version="1.0.3",  # Force restart - WebSocket CORS fix
+    version="1.0.4",  # Force restart - CORS fix for job status endpoint
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -798,21 +798,30 @@ async def get_job_status(job_id: str, request: Request):
                     }
                 }
 
-            return JobStatusResponse(
-                job_id=str(job_int),
-                status=status_mapping.get(project.status, "unknown"),
-                current_step=project.current_step or "upload",
-                progress_percent=project.progress_percent or 0,
-                message=(
-                    "Processing in progress" if project.status == ProjectStatus.PROCESSING else (
-                        project.error_message or ("Completed" if project.status == ProjectStatus.COMPLETED else "Ready")
-                    )
-                ),
-                created_at=project.created_at.timestamp() if project.created_at else time.time(),
-                started_at=None,
-                completed_at=project.completed_at.timestamp() if project.completed_at else None,
-                result=result_payload
+            # TEMPORARY: Add CORS headers to job status response
+            # TODO: REMOVE THIS - Use FastAPI CORS middleware after fixing deployment
+            origin = request.headers.get('origin', 'https://www.getplancast.com')
+            response = JSONResponse(
+                content=JobStatusResponse(
+                    job_id=str(job_int),
+                    status=status_mapping.get(project.status, "unknown"),
+                    current_step=project.current_step or "upload",
+                    progress_percent=project.progress_percent or 0,
+                    message=(
+                        "Processing in progress" if project.status == ProjectStatus.PROCESSING else (
+                            project.error_message or ("Completed" if project.status == ProjectStatus.COMPLETED else "Ready")
+                        )
+                    ),
+                    created_at=project.created_at.timestamp() if project.created_at else time.time(),
+                    started_at=None,
+                    completed_at=project.completed_at.timestamp() if project.completed_at else None,
+                    result=result_payload
+                ).dict()
             )
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Expose-Headers"] = "*"
+            return response
             
     except HTTPException:
         raise
