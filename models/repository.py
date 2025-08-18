@@ -112,6 +112,7 @@ class ProjectRepository:
         scale_reference: Optional[Dict] = None
     ) -> Project:
         """Create a new project."""
+        from datetime import datetime, timezone
         project = Project(
             user_id=user_id,
             filename=filename,
@@ -119,6 +120,7 @@ class ProjectRepository:
             input_file_path=input_file_path,
             file_size_mb=file_size_mb,
             file_format=file_format,
+            updated_at=datetime.now(timezone.utc),
         )
         session.add(project)
         session.commit()
