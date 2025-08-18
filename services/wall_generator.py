@@ -67,8 +67,15 @@ class WallMeshGenerator:
             # Validate input
             self._validate_scaled_coordinates(scaled_coords)
             
-            # Extract wall segments from room boundaries
-            wall_segments = self._extract_wall_segments_from_rooms(scaled_coords)
+            # Extract wall segments from actual wall coordinates or room boundaries
+            if scaled_coords.walls_feet and len(scaled_coords.walls_feet) >= 2:
+                # Use actual wall coordinates from CubiCasa output
+                wall_segments = self._extract_wall_segments_from_coordinates(scaled_coords.walls_feet)
+                logger.info(f"Using actual wall coordinates: {len(wall_segments)} wall segments")
+            else:
+                # Fallback to extracting from room boundaries
+                wall_segments = self._extract_wall_segments_from_rooms(scaled_coords)
+                logger.info(f"Using room boundary extraction: {len(wall_segments)} wall segments")
             
             # Generate meshes for each wall segment
             wall_meshes = []
@@ -167,6 +174,57 @@ class WallMeshGenerator:
         
         # Note: We no longer generate outer walls since rooms now have their own walls
         logger.info(f"Extracted {len(wall_segments)} interior wall segments from room boundaries")
+        return wall_segments
+    
+    def _extract_wall_segments_from_coordinates(self, wall_coordinates: List[Tuple[float, float]]) -> List[Tuple[Tuple[float, float], Tuple[float, float]]]:
+        """
+        Extract wall segments from actual wall coordinates.
+        
+        Args:
+            wall_coordinates: List of (x, y) coordinates representing wall points
+            
+        Returns:
+            List of wall segments as (start_point, end_point) tuples
+        """
+        wall_segments = []
+        
+        if len(wall_coordinates) < 2:
+            logger.warning("Insufficient wall coordinates for segment extraction")
+            return wall_segments
+        
+        # Group consecutive points into wall segments
+        # This assumes wall coordinates are ordered and consecutive points form wall segments
+        for i in range(len(wall_coordinates) - 1):
+            start_point = wall_coordinates[i]
+            end_point = wall_coordinates[i + 1]
+            
+            # Calculate segment length
+            segment_length = math.sqrt(
+                (end_point[0] - start_point[0])**2 + (end_point[1] - start_point[1])**2
+            )
+            
+            # Filter out very short segments (likely noise)
+            min_segment_length = 0.5  # Minimum 0.5 feet
+            if segment_length >= min_segment_length:
+                wall_segments.append((start_point, end_point))
+                logger.debug(f"Wall segment {i}: {start_point} to {end_point} (length: {segment_length:.2f} feet)")
+            else:
+                logger.debug(f"Skipping short wall segment {i}: length {segment_length:.2f} feet")
+        
+        # Also check if the last point connects to the first point (closed loop)
+        if len(wall_coordinates) >= 3:
+            start_point = wall_coordinates[-1]
+            end_point = wall_coordinates[0]
+            
+            segment_length = math.sqrt(
+                (end_point[0] - start_point[0])**2 + (end_point[1] - start_point[1])**2
+            )
+            
+            if segment_length >= min_segment_length:
+                wall_segments.append((start_point, end_point))
+                logger.debug(f"Closing wall segment: {start_point} to {end_point} (length: {segment_length:.2f} feet)")
+        
+        logger.info(f"Extracted {len(wall_segments)} wall segments from {len(wall_coordinates)} coordinates")
         return wall_segments
     
     def _find_shared_wall(self, room1_data: Dict[str, float], room2_data: Dict[str, float]) -> Optional[Tuple[Tuple[float, float], Tuple[float, float]]]:

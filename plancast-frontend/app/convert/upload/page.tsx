@@ -52,6 +52,9 @@ export default function UploadPage() {
     try {
       const jobId = await uploadFile(selectedFile, scaleReference, exportFormats);
       console.log('Upload successful, job ID:', jobId);
+      
+      // Redirect to room selection page after upload
+      router.push(`/convert/rooms/${jobId}`);
     } catch (err) {
       console.error('Upload failed:', err);
     }

@@ -28,12 +28,13 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Import database models and services
-from models.data_structures import ProcessingJob, ProcessingStatus, FileFormat
+from models.data_structures import ProcessingJob, ProcessingStatus, FileFormat, RoomAnalysisResponse, RoomSuggestion
 from models.database import Project, ProjectStatus, User
 from models.database_connection import get_db_session
 from models.repository import ProjectRepository, UsageRepository, UserRepository
 from utils.validators import PlanCastValidator, ValidationError, SecurityError
 from services.websocket_manager import websocket_manager
+from services.coordinate_scaler import CoordinateScaler
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -697,6 +698,218 @@ async def get_user_stats():
 async def get_websocket_stats():
     """Get WebSocket connection statistics."""
     return websocket_manager.get_connection_stats()
+
+@app.get("/analyze/{job_id}/rooms", response_model=RoomAnalysisResponse)
+async def analyze_rooms_for_highlighting(job_id: str, request: Request):
+    """
+    Analyze detected rooms and provide suggestions for user selection.
+    This endpoint is called after AI analysis to get room highlighting data.
+    """
+    try:
+        print(f"🔍 Analyzing rooms for job {job_id}")
+        
+        # Validate job ID
+        try:
+            job_int = int(job_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid job ID format")
+        
+        # Get project from database
+        with get_db_session() as session:
+            project = session.query(Project).filter(Project.id == job_int).first()
+            if not project:
+                raise HTTPException(status_code=404, detail="Job not found")
+            
+            # Check if AI analysis is complete
+            if not project.processing_metadata or "cubicasa_output" not in project.processing_metadata:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="AI analysis not complete. Please wait for processing to finish."
+                )
+            
+            # Extract CubiCasa output from metadata
+            cubicasa_data = project.processing_metadata.get("cubicasa_output", {})
+            if not cubicasa_data:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="No AI analysis data available"
+                )
+            
+            # Convert back to CubiCasaOutput object
+            from models.data_structures import CubiCasaOutput
+            cubicasa_output = CubiCasaOutput(**cubicasa_data)
+            
+            # Get room suggestions using coordinate scaler
+            coordinate_scaler = CoordinateScaler()
+            room_suggestions = coordinate_scaler.get_smart_room_suggestions(cubicasa_output)
+            
+            # Convert to RoomSuggestion objects
+            rooms = []
+            for suggestion in room_suggestions:
+                room = RoomSuggestion(
+                    room_name=suggestion["room_name"],
+                    confidence=suggestion["confidence"],
+                    bounding_box=cubicasa_output.room_bounding_boxes[suggestion["room_name"]],
+                    pixel_dimensions=suggestion["pixel_dimensions"],
+                    suggested_dimension=suggestion["suggested_dimension"],
+                    is_recommended=suggestion["is_recommended"],
+                    highlight_color=suggestion.get("highlight_color", "#4ECDC4"),
+                    priority=suggestion.get("priority", 999),
+                    reason=suggestion.get("reason", "Standard room")
+                )
+                rooms.append(room)
+            
+            # Sort by priority and confidence
+            rooms.sort(key=lambda x: (x.priority, -x.confidence))
+            
+            response = RoomAnalysisResponse(
+                job_id=job_id,
+                rooms=rooms,
+                image_dimensions=cubicasa_output.image_dimensions,
+                analysis_complete=True
+            )
+            
+            # Add CORS headers
+            origin = request.headers.get('origin', 'https://www.getplancast.com')
+            response_obj = JSONResponse(content=response.model_dump())
+            response_obj.headers["Access-Control-Allow-Origin"] = origin
+            response_obj.headers["Access-Control-Allow-Credentials"] = "true"
+            response_obj.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response_obj.headers["Access-Control-Allow-Headers"] = "*"
+            
+            print(f"✅ Room analysis completed for job {job_id}: {len(rooms)} rooms found")
+            return response_obj
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"❌ Error analyzing rooms for job {job_id}: {str(e)}")
+        print(f"Traceback: {tb}")
+        
+        origin = request.headers.get('origin', 'https://www.getplancast.com')
+        response = JSONResponse(
+            status_code=500,
+            content=ErrorResponse(error="Internal server error", message=str(e)).dict()
+        )
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
+
+@app.post("/scale/{job_id}")
+async def submit_scale_input(job_id: str, scale_input: ScaleInputRequest, request: Request):
+    """
+    Submit user scale input for room dimension.
+    This endpoint is called after room selection to provide scaling reference.
+    """
+    try:
+        print(f"🔍 Submitting scale input for job {job_id}")
+        
+        # Validate job ID
+        try:
+            job_int = int(job_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid job ID format")
+        
+        # Validate scale input
+        if scale_input.real_world_feet <= 0:
+            raise HTTPException(status_code=400, detail="Real-world measurement must be positive")
+        
+        if scale_input.dimension_type not in ["width", "length"]:
+            raise HTTPException(status_code=400, detail="Dimension type must be 'width' or 'length'")
+        
+        # Get project from database
+        with get_db_session() as session:
+            project = session.query(Project).filter(Project.id == job_int).first()
+            if not project:
+                raise HTTPException(status_code=404, detail="Job not found")
+            
+            # Check if AI analysis is complete
+            if not project.processing_metadata or "cubicasa_output" not in project.processing_metadata:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="AI analysis not complete. Please wait for processing to finish."
+                )
+            
+            # Extract CubiCasa output from metadata
+            cubicasa_data = project.processing_metadata.get("cubicasa_output", {})
+            if not cubicasa_data:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="No AI analysis data available"
+                )
+            
+            # Convert back to CubiCasaOutput object
+            from models.data_structures import CubiCasaOutput
+            cubicasa_output = CubiCasaOutput(**cubicasa_data)
+            
+            # Validate room exists
+            if scale_input.room_type not in cubicasa_output.room_bounding_boxes:
+                available_rooms = list(cubicasa_output.room_bounding_boxes.keys())
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Room '{scale_input.room_type}' not found. Available rooms: {available_rooms}"
+                )
+            
+            # Process scaling with user input
+            coordinate_scaler = CoordinateScaler()
+            scaled_coords = coordinate_scaler.process_scaling_request(
+                cubicasa_output=cubicasa_output,
+                room_type=scale_input.room_type,
+                dimension_type=scale_input.dimension_type,
+                real_world_feet=scale_input.real_world_feet,
+                job_id=job_id
+            )
+            
+            # Update project with scaled coordinates
+            project.processing_metadata = project.processing_metadata or {}
+            project.processing_metadata["scaled_coordinates"] = scaled_coords.model_dump()
+            project.processing_metadata["scale_input"] = scale_input.model_dump()
+            
+            # Update project status to indicate scaling is complete
+            project.current_step = "scaling_complete"
+            project.progress_percent = 60
+            
+            session.commit()
+            
+            print(f"✅ Scale input processed for job {job_id}: {scale_input.room_type} {scale_input.dimension_type} = {scale_input.real_world_feet} feet")
+            
+            # Add CORS headers
+            origin = request.headers.get('origin', 'https://www.getplancast.com')
+            response = JSONResponse(content={
+                "success": True,
+                "message": "Scale input processed successfully",
+                "job_id": job_id,
+                "scale_factor": scaled_coords.scale_reference.scale_factor
+            })
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            
+            return response
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"❌ Error processing scale input for job {job_id}: {str(e)}")
+        print(f"Traceback: {tb}")
+        
+        origin = request.headers.get('origin', 'https://www.getplancast.com')
+        response = JSONResponse(
+            status_code=500,
+            content=ErrorResponse(error="Internal server error", message=str(e)).dict()
+        )
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
 
 # Error handlers
 @app.exception_handler(HTTPException)

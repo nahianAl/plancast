@@ -52,6 +52,18 @@ class CubiCasaOutput(BaseModel):
         ..., 
         description="Room bounding boxes {'room_type': {'min_x': 0, 'max_x': 255, ...}}"
     )
+    door_coordinates: List[Tuple[int, int]] = Field(
+        default_factory=list,
+        description="Door pixel coordinates [(x,y), (x,y)...]"
+    )
+    window_coordinates: List[Tuple[int, int]] = Field(
+        default_factory=list,
+        description="Window pixel coordinates [(x,y), (x,y)...]"
+    )
+    room_polygons: Dict[str, List[Tuple[int, int]]] = Field(
+        default_factory=dict,
+        description="Room polygon coordinates {'room_name': [(x,y), (x,y)...]}"
+    )
     image_dimensions: Tuple[int, int] = Field(
         ..., 
         description="Image width, height in pixels"
@@ -103,6 +115,18 @@ class ScaledCoordinates(BaseModel):
     rooms_feet: Dict[str, Dict[str, float]] = Field(
         ..., 
         description="Room dimensions and positions in feet"
+    )
+    door_coordinates: List[Tuple[float, float]] = Field(
+        default_factory=list,
+        description="Door coordinates in feet [(x_feet, y_feet)...]"
+    )
+    window_coordinates: List[Tuple[float, float]] = Field(
+        default_factory=list,
+        description="Window coordinates in feet [(x_feet, y_feet)...]"
+    )
+    room_polygons: Dict[str, List[Tuple[float, float]]] = Field(
+        default_factory=dict,
+        description="Room polygon coordinates in feet {'room_name': [(x_feet, y_feet)...]}"
     )
     scale_reference: ScaleReference = Field(
         ..., 
@@ -311,6 +335,25 @@ class JobStatusResponse(BaseModel):
     processing_time: Optional[float]
     error_message: Optional[str]
 
+
+class RoomSuggestion(BaseModel):
+    """Room suggestion for user selection and highlighting."""
+    room_name: str = Field(..., description="Room name/type")
+    confidence: float = Field(..., ge=0, le=1, description="Detection confidence 0-1")
+    bounding_box: Dict[str, int] = Field(..., description="Room bounding box in pixels")
+    pixel_dimensions: Dict[str, int] = Field(..., description="Room dimensions in pixels")
+    suggested_dimension: str = Field(..., description="'width' or 'length'")
+    is_recommended: bool = Field(..., description="Whether this room is recommended for scaling")
+    highlight_color: str = Field(..., description="Color for frontend highlighting")
+    priority: int = Field(..., description="Priority order for suggestions")
+    reason: str = Field(..., description="Reason for recommendation")
+
+class RoomAnalysisResponse(BaseModel):
+    """Response from room analysis endpoint."""
+    job_id: str = Field(..., description="Job ID")
+    rooms: List[RoomSuggestion] = Field(..., description="Detected rooms with suggestions")
+    image_dimensions: Tuple[int, int] = Field(..., description="Original image dimensions")
+    analysis_complete: bool = Field(..., description="Whether analysis is complete")
 
 class ScaleInputRequest(BaseModel):
     """Request for user scale input."""

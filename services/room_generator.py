@@ -71,15 +71,20 @@ class RoomMeshGenerator:
             room_meshes = []
             for room_name, room_data in scaled_coords.rooms_feet.items():
                 try:
+                    # Get room polygon if available
+                    room_polygon = scaled_coords.room_polygons.get(room_name)
+                    
                     room_mesh = self._generate_single_room_mesh(
                         room_name=room_name,
                         room_data=room_data,
                         floor_thickness_feet=floor_thickness_feet,
-                        room_height_feet=room_height_feet
+                        room_height_feet=room_height_feet,
+                        room_polygon=room_polygon
                     )
                     room_meshes.append(room_mesh)
                     
-                    logger.info(f"✅ Generated mesh for {room_name}: "
+                    mesh_type = "polygon" if room_polygon else "bounding box"
+                    logger.info(f"✅ Generated {mesh_type} mesh for {room_name}: "
                               f"{len(room_mesh.vertices)} vertices, {len(room_mesh.faces)} faces")
                     
                 except Exception as e:
@@ -136,39 +141,55 @@ class RoomMeshGenerator:
                                  room_name: str,
                                  room_data: Dict[str, float],
                                  floor_thickness_feet: float,
-                                 room_height_feet: float) -> Room3D:
+                                 room_height_feet: float,
+                                 room_polygon: Optional[List[Tuple[float, float]]] = None) -> Room3D:
         """
-        Generate 3D mesh for a single room (floor, walls, ceiling).
+        Generate 3D mesh for a single room using actual polygon or bounding box.
         
         Args:
             room_name: Room name/type
             room_data: Room dimensions and position
             floor_thickness_feet: Floor thickness
             room_height_feet: Room height
+            room_polygon: Optional room polygon coordinates in feet
             
         Returns:
             Room3D object with complete 3D mesh data
         """
-        # Extract room dimensions
-        width_feet = room_data['width_feet']
-        length_feet = room_data['length_feet']
-        x_offset_feet = room_data['x_offset_feet']
-        y_offset_feet = room_data['y_offset_feet']
-        
-        # Calculate room corners
-        min_x = x_offset_feet
-        max_x = x_offset_feet + width_feet
-        min_y = y_offset_feet
-        max_y = y_offset_feet + length_feet
-        
-        # Generate complete 3D room mesh (floor, walls, ceiling)
-        vertices, faces = self._build_3d_room_box(
-            min_x=min_x,
-            min_y=min_y,
-            max_x=max_x,
-            max_y=max_y,
-            height_feet=room_height_feet
-        )
+        if room_polygon and len(room_polygon) >= 3:
+            # Use actual room polygon for more accurate geometry
+            vertices, faces = self._build_3d_room_from_polygon(
+                room_polygon=room_polygon,
+                height_feet=room_height_feet
+            )
+            
+            logger.debug(f"Generated 3D room '{room_name}' from polygon: "
+                        f"{len(room_polygon)} points, {len(vertices)} vertices, {len(faces)} faces")
+        else:
+            # Fallback to bounding box method
+            width_feet = room_data['width_feet']
+            length_feet = room_data['length_feet']
+            x_offset_feet = room_data['x_offset_feet']
+            y_offset_feet = room_data['y_offset_feet']
+            
+            # Calculate room corners
+            min_x = x_offset_feet
+            max_x = x_offset_feet + width_feet
+            min_y = y_offset_feet
+            max_y = y_offset_feet + length_feet
+            
+            # Generate complete 3D room mesh (floor, walls, ceiling)
+            vertices, faces = self._build_3d_room_box(
+                min_x=min_x,
+                min_y=min_y,
+                max_x=max_x,
+                max_y=max_y,
+                height_feet=room_height_feet
+            )
+            
+            logger.debug(f"Generated 3D room '{room_name}' from bounding box: "
+                        f"size {width_feet:.1f}' × {length_feet:.1f}' × {room_height_feet:.1f}', "
+                        f"position ({x_offset_feet:.1f}, {y_offset_feet:.1f})")
         
         # Create Room3D object
         room_mesh = Room3D(
@@ -178,10 +199,6 @@ class RoomMeshGenerator:
             elevation_feet=0.0,
             height_feet=room_height_feet
         )
-        
-        logger.debug(f"Generated 3D room '{room_name}': "
-                    f"size {width_feet:.1f}' × {length_feet:.1f}' × {room_height_feet:.1f}', "
-                    f"position ({x_offset_feet:.1f}, {y_offset_feet:.1f})")
         
         return room_mesh
     
@@ -246,6 +263,97 @@ class RoomMeshGenerator:
         ]
         
         return vertices, faces
+    
+    def _build_3d_room_from_polygon(self,
+                                   room_polygon: List[Tuple[float, float]],
+                                   height_feet: float) -> Tuple[List[Vertex3D], List[Face]]:
+        """
+        Build 3D room mesh from actual polygon coordinates.
+        
+        Args:
+            room_polygon: List of (x, y) coordinates defining room shape
+            height_feet: Room height in feet
+            
+        Returns:
+            Tuple of (vertices, faces) for the 3D room mesh
+        """
+        vertices = []
+        faces = []
+        
+        # Ensure polygon is closed (first and last points are the same)
+        if room_polygon[0] != room_polygon[-1]:
+            room_polygon = room_polygon + [room_polygon[0]]
+        
+        num_points = len(room_polygon) - 1  # Exclude the closing point
+        
+        # Create bottom vertices (floor level)
+        bottom_vertices = []
+        for x, y in room_polygon[:-1]:  # Exclude the closing point
+            vertices.append(Vertex3D(x=x, y=y, z=0.0))
+            bottom_vertices.append(len(vertices) - 1)
+        
+        # Create top vertices (ceiling level)
+        top_vertices = []
+        for x, y in room_polygon[:-1]:  # Exclude the closing point
+            vertices.append(Vertex3D(x=x, y=y, z=height_feet))
+            top_vertices.append(len(vertices) - 1)
+        
+        # Create floor faces (triangulate the polygon)
+        floor_faces = self._triangulate_polygon(bottom_vertices)
+        faces.extend(floor_faces)
+        
+        # Create ceiling faces (triangulate the polygon)
+        ceiling_faces = self._triangulate_polygon(top_vertices)
+        faces.extend(ceiling_faces)
+        
+        # Create wall faces (connect bottom to top)
+        for i in range(num_points):
+            next_i = (i + 1) % num_points
+            
+            # Create two triangles for each wall segment
+            # Triangle 1: bottom_i, top_i, bottom_next_i
+            faces.append(Face(indices=[
+                bottom_vertices[i],
+                top_vertices[i],
+                bottom_vertices[next_i]
+            ]))
+            
+            # Triangle 2: top_i, top_next_i, bottom_next_i
+            faces.append(Face(indices=[
+                top_vertices[i],
+                top_vertices[next_i],
+                bottom_vertices[next_i]
+            ]))
+        
+        return vertices, faces
+    
+    def _triangulate_polygon(self, vertex_indices: List[int]) -> List[Face]:
+        """
+        Triangulate a polygon using ear clipping algorithm.
+        
+        Args:
+            vertex_indices: List of vertex indices forming the polygon
+            
+        Returns:
+            List of triangular faces
+        """
+        if len(vertex_indices) < 3:
+            return []
+        
+        if len(vertex_indices) == 3:
+            return [Face(indices=vertex_indices)]
+        
+        # Simple triangulation for convex polygons
+        # For complex polygons, you'd want a more sophisticated algorithm
+        faces = []
+        for i in range(1, len(vertex_indices) - 1):
+            faces.append(Face(indices=[
+                vertex_indices[0],
+                vertex_indices[i],
+                vertex_indices[i + 1]
+            ]))
+        
+        return faces
     
     def validate_room_mesh(self, room_mesh: Room3D) -> Dict[str, Any]:
         """

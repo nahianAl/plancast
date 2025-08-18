@@ -47,8 +47,11 @@ class CoordinateScaler:
     """
     
     def __init__(self):
-        """Initialize coordinate scaler."""
+        """Initialize coordinate scaler with performance optimizations."""
         self.scale_reference: Optional[ScaleReference] = None
+        self.scale_cache = {}  # Cache for scale factors
+        self.room_suggestion_cache = {}  # Cache for room suggestions
+        self.validation_cache = {}  # Cache for validation results
         
     def calculate_scale_factor(self, 
                              cubicasa_output: CubiCasaOutput,
@@ -146,6 +149,26 @@ class CoordinateScaler:
                 for x, y in cubicasa_output.wall_coordinates
             ]
             
+            # Convert door coordinates to feet
+            doors_feet = [
+                (x / scale_factor, y / scale_factor)
+                for x, y in cubicasa_output.door_coordinates
+            ]
+            
+            # Convert window coordinates to feet
+            windows_feet = [
+                (x / scale_factor, y / scale_factor)
+                for x, y in cubicasa_output.window_coordinates
+            ]
+            
+            # Convert room polygons to feet
+            room_polygons_feet = {}
+            for room_name, polygon_coords in cubicasa_output.room_polygons.items():
+                room_polygons_feet[room_name] = [
+                    (x / scale_factor, y / scale_factor)
+                    for x, y in polygon_coords
+                ]
+            
             logger.info(f"Converted {len(walls_feet)} wall coordinate points to feet")
             
             # Convert room bounding boxes to feet with positioning
@@ -173,6 +196,9 @@ class CoordinateScaler:
             scaled_coordinates = ScaledCoordinates(
                 walls_feet=walls_feet,
                 rooms_feet=rooms_feet,
+                door_coordinates=doors_feet,
+                window_coordinates=windows_feet,
+                room_polygons=room_polygons_feet,
                 scale_reference=scale_reference,
                 total_building_size=total_building_size
             )
@@ -339,6 +365,21 @@ class CoordinateScaler:
             "suggestions": []
         }
         
+        # Validate CubiCasa output structure
+        if not cubicasa_output.room_bounding_boxes:
+            validation_result["is_valid"] = False
+            validation_result["errors"].append("No rooms detected in floor plan")
+            return validation_result
+        
+        if not cubicasa_output.wall_coordinates:
+            validation_result["warnings"].append("No wall coordinates detected - wall generation may be limited")
+        
+        if not cubicasa_output.room_polygons:
+            validation_result["warnings"].append("No room polygons detected - using bounding boxes for room shapes")
+        
+        if not cubicasa_output.door_coordinates and not cubicasa_output.window_coordinates:
+            validation_result["warnings"].append("No doors or windows detected - cutouts will not be generated")
+        
         # Validate room type format
         if not room_type or not room_type.strip():
             validation_result["is_valid"] = False
@@ -369,15 +410,52 @@ class CoordinateScaler:
         
         dimension_type = dimension_type.lower()
         
+        # Room-specific dimension validation
+        room_type_lower = room_type.lower()
+        room_dimension_limits = {
+            "kitchen": {"min": 8, "max": 20, "typical": 12},
+            "living_room": {"min": 12, "max": 30, "typical": 16},
+            "bedroom": {"min": 10, "max": 25, "typical": 12},
+            "bathroom": {"min": 5, "max": 15, "typical": 8},
+            "dining_room": {"min": 10, "max": 25, "typical": 14}
+        }
+        
+        # Get limits for this room type
+        limits = room_dimension_limits.get(room_type_lower, {"min": 5, "max": 30, "typical": 12})
+        
         # Validate measurement
         if real_world_feet <= 0:
             validation_result["is_valid"] = False
             validation_result["errors"].append("Measurement must be positive")
             return validation_result
-        elif real_world_feet < 3:
-            validation_result["warnings"].append("Measurement seems very small for a room")
-        elif real_world_feet > 100:
-            validation_result["warnings"].append("Measurement seems very large for a room")
+        elif real_world_feet < limits["min"]:
+            validation_result["is_valid"] = False
+            validation_result["errors"].append(
+                f"{room_type} {dimension_type} too small: {real_world_feet} feet. "
+                f"Minimum: {limits['min']} feet"
+            )
+            validation_result["suggestions"].append(
+                f"Typical {room_type} {dimension_type}: {limits['typical']} feet"
+            )
+            return validation_result
+        elif real_world_feet > limits["max"]:
+            validation_result["is_valid"] = False
+            validation_result["errors"].append(
+                f"{room_type} {dimension_type} too large: {real_world_feet} feet. "
+                f"Maximum: {limits['max']} feet"
+            )
+            validation_result["suggestions"].append(
+                f"Typical {room_type} {dimension_type}: {limits['typical']} feet"
+            )
+            return validation_result
+        
+        # Warning for unusual dimensions
+        typical = limits["typical"]
+        if abs(real_world_feet - typical) > typical * 0.5:  # More than 50% off typical
+            validation_result["warnings"].append(
+                f"Unusual {room_type} {dimension_type}: {real_world_feet} feet "
+                f"(typical: {typical} feet). Please verify this measurement."
+            )
         
         # Validate measurement against room size
         room_bbox = cubicasa_output.room_bounding_boxes[room_type]
@@ -434,15 +512,21 @@ class CoordinateScaler:
         Returns:
             List of room suggestions with confidence and reasoning
         """
+        # Check cache first
+        cache_key = hash(str(cubicasa_output.room_bounding_boxes))
+        if cache_key in self.room_suggestion_cache:
+            logger.debug("Using cached room suggestions")
+            return self.room_suggestion_cache[cache_key]
+        
         suggestions = []
         
-        # Priority order for room selection
+        # Priority order for room selection with highlighting colors
         room_priority = {
-            "kitchen": {"priority": 1, "reason": "Kitchens are easy to measure and commonly known"},
-            "living_room": {"priority": 2, "reason": "Living rooms are typically the largest, easy to measure"},
-            "bedroom": {"priority": 3, "reason": "Bedrooms have standard sizes"},
-            "bathroom": {"priority": 4, "reason": "Bathrooms are smaller but well-defined"},
-            "dining_room": {"priority": 5, "reason": "Dining rooms are clearly defined spaces"}
+            "kitchen": {"priority": 1, "color": "#FF6B6B", "reason": "Kitchens are easy to measure and commonly known"},
+            "living_room": {"priority": 2, "color": "#4ECDC4", "reason": "Living rooms are typically the largest, easy to measure"},
+            "bedroom": {"priority": 3, "color": "#45B7D1", "reason": "Bedrooms have standard sizes"},
+            "bathroom": {"priority": 4, "color": "#FFEAA7", "reason": "Bathrooms are smaller but well-defined"},
+            "dining_room": {"priority": 5, "color": "#96CEB4", "reason": "Dining rooms are clearly defined spaces"}
         }
         
         for room_name, bbox in cubicasa_output.room_bounding_boxes.items():
@@ -451,7 +535,7 @@ class CoordinateScaler:
             room_area = room_width * room_height
             
             # Get priority info
-            priority_info = room_priority.get(room_name.lower(), {"priority": 6, "reason": "Standard room"})
+            priority_info = room_priority.get(room_name.lower(), {"priority": 6, "color": "#DDA0DD", "reason": "Standard room"})
             
             # Calculate confidence based on size and type
             confidence = cubicasa_output.confidence_scores.get(room_name, 0.5)
@@ -465,6 +549,7 @@ class CoordinateScaler:
                 "confidence": adjusted_confidence,
                 "priority": priority_info["priority"],
                 "reason": priority_info["reason"],
+                "highlight_color": priority_info["color"],
                 "pixel_dimensions": {"width": room_width, "height": room_height},
                 "suggested_dimension": "width" if room_width >= room_height else "length",
                 "is_recommended": priority_info["priority"] <= 3 and adjusted_confidence > 0.7
@@ -474,6 +559,9 @@ class CoordinateScaler:
         
         # Sort by priority and confidence
         suggestions.sort(key=lambda x: (x["priority"], -x["confidence"]))
+        
+        # Cache the result
+        self.room_suggestion_cache[cache_key] = suggestions
         
         logger.info(f"Generated {len(suggestions)} room scaling suggestions")
         return suggestions

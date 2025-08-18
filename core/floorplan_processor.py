@@ -29,6 +29,7 @@ from services.cubicasa_service import CubiCasaService, CubiCasaError
 from services.coordinate_scaler import CoordinateScaler, ScalingError
 from services.room_generator import RoomMeshGenerator, RoomGenerationError
 from services.wall_generator import WallMeshGenerator, WallGenerationError
+from services.opening_cutout_generator import OpeningCutoutGenerator, OpeningCutoutError
 from services.mesh_exporter import MeshExporter, MeshExportError
 from utils.logger import get_logger, log_job_start, log_job_complete, log_job_error
 
@@ -57,6 +58,7 @@ class FloorPlanProcessor:
         self.coordinate_scaler = CoordinateScaler()
         self.room_generator = RoomMeshGenerator()
         self.wall_generator = WallMeshGenerator()
+        self.opening_cutout_generator = OpeningCutoutGenerator()
         self.mesh_exporter = MeshExporter()
         
         logger.info("✅ Floor plan processor initialized with all services")
@@ -167,12 +169,20 @@ class FloorPlanProcessor:
             wall_meshes = self.wall_generator.generate_wall_meshes(scaled_coords)
             logger.info(f"✅ Wall generation completed: {len(wall_meshes)} wall meshes created")
             
+            # Step 5.5: Door/Window Cutout Generation
+            job.current_step = "cutout_generation"
+            job.progress_percent = 75
+            logger.info(f"🚪 Step 5.5: Generating door and window cutouts")
+            
+            wall_meshes_with_cutouts = self.opening_cutout_generator.generate_cutouts(scaled_coords, wall_meshes)
+            logger.info(f"✅ Cutout generation completed: {len(wall_meshes_with_cutouts)} walls with cutouts")
+            
             # Step 6: Building Assembly
             job.current_step = "building_assembly"
             job.progress_percent = 80
             logger.info(f"🏗️ Step 6: Assembling complete 3D building model")
             
-            building_3d = self._assemble_building(room_meshes, wall_meshes, scaled_coords)
+            building_3d = self._assemble_building(room_meshes, wall_meshes_with_cutouts, scaled_coords)
             job.building_3d = building_3d
             
             logger.info(f"✅ Building assembly completed: {building_3d.total_vertices} vertices, {building_3d.total_faces} faces")
@@ -232,6 +242,11 @@ class FloorPlanProcessor:
             error_msg = f"Wall generation failed: {str(e)}"
             logger.error(f"❌ {error_msg}")
             return self._handle_job_error(job, error_msg, "wall_generation")
+            
+        except OpeningCutoutError as e:
+            error_msg = f"Cutout generation failed: {str(e)}"
+            logger.error(f"❌ {error_msg}")
+            return self._handle_job_error(job, error_msg, "cutout_generation")
             
         except MeshExportError as e:
             error_msg = f"Model export failed: {str(e)}"

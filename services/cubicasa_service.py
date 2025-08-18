@@ -409,6 +409,7 @@ class CubiCasaService:
             max_room_area_ratio = 0.5  # Room should not cover more than 50% of the image
             
             # Process room polygons
+            room_polygons_dict = {}
             for i, room_poly in enumerate(room_polygons):
                 room_class_id = room_types[i]['class']
                 # You might want a mapping from class ID to a name like "living_room"
@@ -443,16 +444,48 @@ class CubiCasaService:
                         "max_y": int(max_y)
                     }
                     
-                    logger.info(f"Added room {room_name}: {room_width:.0f}×{room_height:.0f} pixels ({room_area_ratio:.1%} of image)")
+                    # Extract room polygon coordinates
+                    try:
+                        # Get polygon coordinates from shapely polygon
+                        if hasattr(room_poly, 'exterior'):
+                            coords = list(room_poly.exterior.coords)
+                        else:
+                            # Fallback to bounding box if polygon is not available
+                            coords = [
+                                (min_x, min_y), (max_x, min_y), 
+                                (max_x, max_y), (min_x, max_y), (min_x, min_y)
+                            ]
+                        
+                        # Convert to integer coordinates
+                        room_polygons_dict[room_name] = [(int(x), int(y)) for x, y in coords]
+                        
+                        logger.info(f"Added room {room_name}: {room_width:.0f}×{room_height:.0f} pixels ({room_area_ratio:.1%} of image) with {len(room_polygons_dict[room_name])} polygon points")
+                    except Exception as e:
+                        logger.warning(f"Failed to extract polygon for room {room_name}: {str(e)}")
+                        # Fallback to bounding box
+                        room_polygons_dict[room_name] = [
+                            (int(min_x), int(min_y)), (int(max_x), int(min_y)), 
+                            (int(max_x), int(max_y)), (int(min_x), int(max_y)), (int(min_x), int(min_y))
+                        ]
                 else:
                     logger.warning(f"Skipping room {room_name} due to NaN bounds")
 
             # Process wall and icon polygons
+            door_coordinates = []
+            window_coordinates = []
+            
             for i, poly in enumerate(polygons):
-                 # For now, we'll just add all wall coordinates.
-                 # In the future, you can differentiate based on types[i]['type']
-                 if types[i]['type'] == 'wall':
-                     wall_coordinates.extend([tuple(map(int, coord)) for coord in poly])
+                if types[i]['type'] == 'wall':
+                    wall_coordinates.extend([tuple(map(int, coord)) for coord in poly])
+                elif types[i]['type'] == 'icon':
+                    # Extract door and window coordinates
+                    icon_class = types[i]['class']
+                    
+                    # Map icon classes to door/window types based on CubiCasa5K classes
+                    if icon_class in [1, 2]:  # Door classes
+                        door_coordinates.extend([tuple(map(int, coord)) for coord in poly])
+                    elif icon_class in [3, 4]:  # Window classes
+                        window_coordinates.extend([tuple(map(int, coord)) for coord in poly])
             
             # For now, confidence scores are static. This can be improved later.
             confidence_scores = {room: 0.95 for room in room_bounding_boxes.keys()}
@@ -460,6 +493,9 @@ class CubiCasaService:
             return CubiCasaOutput(
                 wall_coordinates=wall_coordinates,
                 room_bounding_boxes=room_bounding_boxes,
+                door_coordinates=door_coordinates,
+                window_coordinates=window_coordinates,
+                room_polygons=room_polygons_dict,
                 image_dimensions=original_size,
                 confidence_scores=confidence_scores,
                 processing_time=0.0  # Will be set by caller
