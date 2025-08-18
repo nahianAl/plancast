@@ -242,4 +242,71 @@ This document tracks all improvements and changes made to the PlanCast 3D model 
 
 ---
 
+### **🚨 CRITICAL ISSUE: 3D Model Generation Producing Gibberish**
+
+**Date**: [2025-01-27] - **Status**: **DEBUGGING REQUIRED** 🔧
+
+**Problem Identified**: Despite completing all phases of the 3D model generation overhaul, the pipeline is producing gibberish results instead of recognizable 3D models.
+
+**Root Cause Analysis**: The complexity of the enhanced pipeline (coordinate scaling, door/window cutouts, enhanced validation) may be introducing errors in the core 3D generation process.
+
+**Solution**: Create a simplified test pipeline to isolate and fix the core 3D generation issues.
+
+---
+
+### **🔧 SIMPLIFIED TEST PIPELINE APPROACH**
+
+**Objective**: Create a minimal 3D generation pipeline to debug and fix core issues.
+
+**Test Pipeline Design**:
+1. **Skip Coordinate Scaling**: Use default scaling (1 pixel = 1 foot) to eliminate scaling errors
+2. **Skip Door/Window Integration**: Focus only on basic room and wall generation  
+3. **Skip Enhanced Validation**: Use basic validation to reduce complexity
+4. **Direct CubiCasa → 3D**: Simple conversion from CubiCasa output to 3D models
+
+**Test Pipeline Steps**:
+```
+CubiCasa Output → Simple Room Generation → Simple Wall Generation → Basic 3D Export
+```
+
+**Files to Create**:
+- [ ] `test_pipeline_simple.py` - Simplified pipeline for testing
+- [ ] `services/test_room_generator.py` - Basic room generation without scaling
+- [ ] `services/test_wall_generator.py` - Basic wall generation without cutouts
+- [ ] `test_simple_3d_generation.py` - Test script for simplified pipeline
+
+**Important Notes**:
+- **Temporary Approach**: This is for debugging only
+- **Must Revert**: After fixing core issues, we must integrate back with the full pipeline
+- **Preserve Original Code**: Keep all existing enhanced pipeline code intact
+- **Isolated Testing**: Test only the core 3D generation logic
+
+**Success Criteria**:
+- [ ] Simple pipeline produces recognizable 3D models
+- [ ] Room shapes match CubiCasa bounding boxes
+- [ ] Wall placement is accurate
+- [ ] Basic GLB/OBJ export works correctly
+- [ ] No gibberish or corrupted geometry
+
+**Issues Identified**:
+1. **Data Structure Validation Errors**: Face model expects `indices` field, not `vertex_indices`
+2. **CubiCasa Model Not Detecting Rooms**: Model processes images but detects 0 rooms and 0 wall coordinates
+3. **Pipeline Flow Issues**: Simplified pipeline works, but CubiCasa output is empty
+
+**Root Cause Analysis**:
+- The core 3D generation logic appears sound
+- The issue is likely in the CubiCasa model's room/wall detection
+- Data structure mismatches are causing validation failures
+
+**Next Steps After Fix**:
+1. Fix data structure validation errors (Face model, CubiCasaOutput fields)
+2. Investigate why CubiCasa model detects 0 rooms from test images
+3. Test with real floor plan images that CubiCasa can properly detect
+4. Gradually reintegrate coordinate scaling
+5. Add back door/window cutouts
+6. Restore enhanced validation
+7. Test complete pipeline
+
+---
+
 *This document will be updated as we progress through the implementation phases.*
