@@ -6,7 +6,7 @@ const createApiClient = (): AxiosInstance => {
   const client = axios.create({
     baseURL: config.api.baseUrl,
     timeout: config.api.timeout,
-    withCredentials: false, // Temporarily disable CORS credentials to fix 502 errors
+    withCredentials: true, // Re-enable CORS credentials - backend is working correctly
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
