@@ -2,7 +2,7 @@ export const config = {
   // API Configuration
   api: {
     baseUrl: process.env.NEXT_PUBLIC_API_URL || 'https://api.getplancast.com',
-    timeout: 30000, // 30 seconds
+    timeout: 300000, // 5 minutes - increased for 3D model processing
     retryAttempts: 3,
     retryDelay: 1000, // 1 second
   },
@@ -28,7 +28,7 @@ export const config = {
   // Job Status Configuration
   job: {
     statusPollingInterval: 2000, // 2 seconds
-    maxPollingAttempts: 150, // 5 minutes max
+    maxPollingAttempts: 600, // 20 minutes max - increased for 3D model processing
     progressSteps: {
       UPLOAD: 10,
       AI_ANALYSIS: 25,
