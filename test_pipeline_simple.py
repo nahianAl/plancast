@@ -100,6 +100,19 @@ class SimpleTestPipeline:
             job.progress_percent = 50
             logger.info(f"🏠 Step 2: Generating simple room meshes (1:1 pixel to foot)")
             
+            # Handle empty CubiCasa detection gracefully
+            if not cubicasa_output.room_bounding_boxes:
+                logger.warning(f"⚠️ No rooms detected by CubiCasa - creating default room")
+                # Create a default room using image dimensions
+                default_room_bbox = {
+                    "min_x": 0,
+                    "min_y": 0, 
+                    "max_x": 512,  # Default image width
+                    "max_y": 512   # Default image height
+                }
+                cubicasa_output.room_bounding_boxes = {"default_room": default_room_bbox}
+                logger.info(f"✅ Created default room: {default_room_bbox}")
+            
             room_meshes = self.room_generator.generate_simple_rooms(cubicasa_output)
             logger.info(f"✅ Simple room generation completed: {len(room_meshes)} room meshes created")
             
@@ -107,6 +120,10 @@ class SimpleTestPipeline:
             job.current_step = "simple_wall_generation"
             job.progress_percent = 75
             logger.info(f"🧱 Step 3: Generating simple wall meshes (no cutouts)")
+            
+            # Handle empty wall coordinates gracefully
+            if not cubicasa_output.wall_coordinates:
+                logger.warning(f"⚠️ No wall coordinates detected by CubiCasa - will generate from room boundaries")
             
             wall_meshes = self.wall_generator.generate_simple_walls(cubicasa_output)
             logger.info(f"✅ Simple wall generation completed: {len(wall_meshes)} wall meshes created")
