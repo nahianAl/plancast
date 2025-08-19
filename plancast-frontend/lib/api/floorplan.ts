@@ -148,10 +148,10 @@ export class FloorPlanAPI {
    */
   async pollJobProgress(
     jobId: string,
-    onProgress?: (job: ProcessingJob) => void,
-    onComplete?: (job: ProcessingJob) => void,
+    onProgress?: (job: JobStatusResponse) => void,
+    onComplete?: (job: JobStatusResponse) => void,
     onError?: (error: Error) => void
-  ): Promise<ProcessingJob> {
+  ): Promise<JobStatusResponse> {
     let attempts = 0;
     const maxAttempts = config.job.maxPollingAttempts;
     const interval = config.job.statusPollingInterval;
@@ -178,7 +178,7 @@ export class FloorPlanAPI {
 
           // Check if job failed
           if (job.status === 'failed') {
-            const error = new Error(job.error_message || 'Job processing failed');
+            const error = new Error(job.message || 'Job processing failed');
             if (onError) {
               onError(error);
             }

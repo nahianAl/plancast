@@ -18,14 +18,14 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { getJobStatus, pollJobProgress } from '@/lib/api/floorplan';
 import { config } from '@/lib/config';
-import type { ProcessingJob, JobStatus } from '@/lib/api';
+import type { JobStatusResponse, JobStatus } from '@/types/api';
 
 export default function JobStatusPage() {
   const params = useParams();
   const router = useRouter();
   const jobId = params.jobId as string;
 
-  const [job, setJob] = useState<ProcessingJob | null>(null);
+  const [job, setJob] = useState<JobStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
@@ -224,10 +224,10 @@ export default function JobStatusPage() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     {getStatusIcon(job.status)}
-                    {job.filename}
+                    Job {job.job_id}
                   </CardTitle>
                   <CardDescription>
-                    {job.created_at && new Date(job.created_at).toLocaleString()}
+                    {job.created_at && new Date(job.created_at * 1000).toLocaleString()}
                   </CardDescription>
                 </div>
                 {getStatusBadge(job.status)}
@@ -241,11 +241,11 @@ export default function JobStatusPage() {
                 </div>
                 <div>
                   <span className="font-medium text-gray-700">Progress:</span>
-                  <p className="text-gray-900">{job.progress}%</p>
+                  <p className="text-gray-900">{job.progress_percent}%</p>
                 </div>
                 <div>
-                  <span className="font-medium text-gray-700">Export Formats:</span>
-                  <p className="text-gray-900">{job.export_formats.join(', ').toUpperCase()}</p>
+                  <span className="font-medium text-gray-700">Current Step:</span>
+                  <p className="text-gray-900">{job.current_step.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
                 </div>
               </div>
             </CardContent>
@@ -263,11 +263,11 @@ export default function JobStatusPage() {
             <CardHeader>
               <CardTitle>Processing Progress</CardTitle>
               <CardDescription>
-                {getStepDescription(job.progress)}
+                {getStepDescription(job.progress_percent)}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <Progress value={job.progress} className="w-full" />
+              <Progress value={job.progress_percent} className="w-full" />
               
               {/* Pipeline Steps */}
               <div className="space-y-4">
@@ -282,7 +282,7 @@ export default function JobStatusPage() {
                         </p>
                         <p className="text-xs text-gray-500">{progress}%</p>
                       </div>
-                      {job.progress >= progress && (
+                      {job.progress_percent >= progress && (
                         <CheckCircle className="w-4 h-4 text-green-500" />
                       )}
                     </div>
@@ -294,7 +294,7 @@ export default function JobStatusPage() {
         </motion.div>
 
         {/* Processing Details */}
-        {job.processing_metadata && (
+        {job.result && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -308,29 +308,21 @@ export default function JobStatusPage() {
               <CardContent>
                 <div className="grid md:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="font-medium text-gray-700">File Size:</span>
-                    <p className="text-gray-900">{job.processing_metadata.file_size_mb.toFixed(2)} MB</p>
+                    <span className="font-medium text-gray-700">Message:</span>
+                    <p className="text-gray-900">{job.message}</p>
                   </div>
-                  <div>
-                    <span className="font-medium text-gray-700">Processing Time:</span>
-                    <p className="text-gray-900">{job.processing_metadata.processing_time_seconds.toFixed(1)}s</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">Rooms Detected:</span>
-                    <p className="text-gray-900">{job.processing_metadata.rooms_detected}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">Walls Generated:</span>
-                    <p className="text-gray-900">{job.processing_metadata.walls_generated}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">Mesh Vertices:</span>
-                    <p className="text-gray-900">{job.processing_metadata.mesh_vertices.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">Mesh Faces:</span>
-                    <p className="text-gray-900">{job.processing_metadata.mesh_faces.toLocaleString()}</p>
-                  </div>
+                  {job.result.model_url && (
+                    <div>
+                      <span className="font-medium text-gray-700">Model URL:</span>
+                      <p className="text-gray-900">{job.result.model_url}</p>
+                    </div>
+                  )}
+                  {job.result.formats && (
+                    <div>
+                      <span className="font-medium text-gray-700">Export Formats:</span>
+                      <p className="text-gray-900">{job.result.formats.join(', ').toUpperCase()}</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
