@@ -40,17 +40,24 @@ export interface ScaleReference {
   confidence?: number; // AI confidence score (0-1)
 }
 
-// API Response types
+// API Response types - Backend returns job data directly, not wrapped
 export interface JobResponse {
   success: boolean;
   job: ProcessingJob;
   message?: string;
 }
 
+// Backend JobStatusResponse matches the actual backend response structure
 export interface JobStatusResponse {
-  success: boolean;
-  job: ProcessingJob;
-  message?: string;
+  job_id: string;
+  status: string;
+  current_step: string;
+  progress_percent: number;
+  message: string;
+  created_at: number; // Unix timestamp
+  started_at?: number | null; // Unix timestamp
+  completed_at?: number | null; // Unix timestamp
+  result?: Record<string, any> | null;
 }
 
 export interface ErrorResponse {

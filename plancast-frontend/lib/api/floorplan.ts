@@ -77,12 +77,12 @@ export class FloorPlanAPI {
    * Get job status and progress
    * Maps to backend GET /jobs/{job_id}/status endpoint
    */
-  async getJobStatus(jobId: string): Promise<ProcessingJob> {
+  async getJobStatus(jobId: string): Promise<JobStatusResponse> {
     try {
       const response = await api.get<JobStatusResponse>(`/jobs/${jobId}/status`);
       
-      // Backend returns job data directly, not wrapped in success/job structure
-      return response.data as ProcessingJob;
+      // Backend returns JobStatusResponse directly
+      return response.data;
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;

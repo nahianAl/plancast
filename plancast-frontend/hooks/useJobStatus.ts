@@ -98,7 +98,7 @@ export const useJobStatus = (options: UseJobStatusOptions) => {
       const status: JobStatus = {
         jobId: data.job_id,
         status: data.status,
-        progress: data.progress_percent || data.progress || 0,
+        progress: data.progress_percent || 0,
         message: data.message,
         result: data.result,
         createdAt: data.created_at ? new Date(data.created_at * 1000).toISOString() : nowIso,
