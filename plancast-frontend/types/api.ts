@@ -50,7 +50,7 @@ export interface JobResponse {
 // Backend JobStatusResponse matches the actual backend response structure
 export interface JobStatusResponse {
   job_id: string;
-  status: string;
+  status: JobStatus; // Use the proper JobStatus type
   current_step: string;
   progress_percent: number;
   message: string;
