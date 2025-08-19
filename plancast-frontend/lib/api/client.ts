@@ -21,6 +21,9 @@ const createApiClient = (): AxiosInstance => {
         console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
       }
       
+      // Always log in production for debugging
+      console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
+      
       return config;
     },
     (error) => {
@@ -98,11 +101,17 @@ const createApiClient = (): AxiosInstance => {
 // Create and export the API client instance
 export const apiClient = createApiClient();
 
+// Add cache-busting parameter to force fresh requests
+const addCacheBuster = (url: string) => {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}_t=${Date.now()}`;
+};
+
 // Utility functions for common HTTP methods
 export const api = {
   // GET request
   get: <T = unknown>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> => {
-    return apiClient.get<T>(url, config);
+    return apiClient.get<T>(addCacheBuster(url), config);
   },
 
   // POST request
