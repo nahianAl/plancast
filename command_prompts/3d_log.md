@@ -350,6 +350,13 @@ CubiCasa Output → Simple Room Generation → Simple Wall Generation → Basic 
 - Browser may be caching old responses or there's a timing issue
 - **Solution**: Hard refresh browser (Ctrl+F5 / Cmd+Shift+R) or clear cache
 
+**Railway Infrastructure Issues**:
+- Intermittent "connection refused" errors in Railway logs
+- Upstream server occasionally refusing connections
+- Endpoints work fine when tested directly
+- Likely temporary Railway infrastructure problems
+- **Solution**: Retry requests or wait for Railway to stabilize
+
 ---
 
 *This document will be updated as we progress through the implementation phases.*
