@@ -77,12 +77,26 @@ export class FloorPlanAPI {
    * Get job status and progress
    * Maps to backend GET /jobs/{job_id}/status endpoint
    */
-  async getJobStatus(jobId: string): Promise<JobStatusResponse> {
+  async getJobStatus(jobId: string): Promise<ProcessingJob> {
     try {
       const response = await api.get<JobStatusResponse>(`/jobs/${jobId}/status`);
       
-      // Backend returns JobStatusResponse directly
-      return response.data;
+      // Convert JobStatusResponse to ProcessingJob format for backward compatibility
+      const data = response.data;
+      return {
+        job_id: data.job_id,
+        filename: `Job ${data.job_id}`,
+        status: data.status,
+        progress: data.progress_percent,
+        created_at: new Date(data.created_at * 1000).toISOString(),
+        started_at: data.started_at ? new Date(data.started_at * 1000).toISOString() : undefined,
+        completed_at: data.completed_at ? new Date(data.completed_at * 1000).toISOString() : undefined,
+        error_message: data.status === 'failed' ? data.message : undefined,
+        export_formats: data.result?.formats || ['glb'],
+        input_file_path: '',
+        output_files: data.result?.output_files || {},
+        processing_metadata: undefined
+      };
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;
@@ -148,10 +162,10 @@ export class FloorPlanAPI {
    */
   async pollJobProgress(
     jobId: string,
-    onProgress?: (job: JobStatusResponse) => void,
-    onComplete?: (job: JobStatusResponse) => void,
+    onProgress?: (job: ProcessingJob) => void,
+    onComplete?: (job: ProcessingJob) => void,
     onError?: (error: Error) => void
-  ): Promise<JobStatusResponse> {
+  ): Promise<ProcessingJob> {
     let attempts = 0;
     const maxAttempts = config.job.maxPollingAttempts;
     const interval = config.job.statusPollingInterval;
@@ -178,7 +192,7 @@ export class FloorPlanAPI {
 
           // Check if job failed
           if (job.status === 'failed') {
-            const error = new Error(job.message || 'Job processing failed');
+            const error = new Error(job.error_message || 'Job processing failed');
             if (onError) {
               onError(error);
             }

@@ -6,7 +6,7 @@ const createApiClient = (): AxiosInstance => {
   const client = axios.create({
     baseURL: config.api.baseUrl,
     timeout: config.api.timeout,
-    // Remove withCredentials - not needed for this API and causing CORS issues
+    // Simple configuration - no withCredentials to avoid CORS complexity
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',

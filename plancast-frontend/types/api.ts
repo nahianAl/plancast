@@ -60,6 +60,30 @@ export interface JobStatusResponse {
   result?: Record<string, any> | null;
 }
 
+// Keep the original ProcessingJob for backward compatibility
+export interface ProcessingJob {
+  job_id: string;
+  filename: string;
+  status: JobStatus;
+  progress: number; // 0-100 percentage
+  created_at: string; // ISO 8601 timestamp
+  started_at?: string;
+  completed_at?: string;
+  error_message?: string;
+  scale_reference?: ScaleReference;
+  export_formats: ExportFormat[];
+  input_file_path: string;
+  output_files?: Record<ExportFormat, string>; // format -> file path
+  processing_metadata?: {
+    file_size_mb: number;
+    processing_time_seconds: number;
+    rooms_detected: number;
+    walls_generated: number;
+    mesh_vertices: number;
+    mesh_faces: number;
+  };
+}
+
 export interface ErrorResponse {
   success: false;
   error: string;

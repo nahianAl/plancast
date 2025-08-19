@@ -40,8 +40,8 @@ export function useFileUpload(): UseFileUploadReturn {
       await pollJobProgress(
         job.job_id,
         (updatedJob) => {
-          setUploadProgress(updatedJob.progress_percent);
-          setCurrentStep(getStepDescription(updatedJob.progress_percent));
+          setUploadProgress(updatedJob.progress);
+          setCurrentStep(getStepDescription(updatedJob.progress));
         },
         (completedJob) => {
           setUploadProgress(100);
