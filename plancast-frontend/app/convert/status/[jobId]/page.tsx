@@ -275,7 +275,7 @@ export default function JobStatusPage() {
                 <div className="grid gap-3">
                   {Object.entries(config.job.progressSteps).map(([step, progress]) => (
                     <div key={step} className="flex items-center gap-3">
-                      {getStepIcon(progress, job.progress)}
+                      {getStepIcon(progress, job.progress_percent)}
                       <div className="flex-1">
                         <p className="text-sm font-medium text-gray-900">
                           {step.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
