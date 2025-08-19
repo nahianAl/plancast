@@ -6,6 +6,7 @@ const createApiClient = (): AxiosInstance => {
   const client = axios.create({
     baseURL: config.api.baseUrl,
     timeout: config.api.timeout,
+    withCredentials: true, // Enable CORS credentials
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',

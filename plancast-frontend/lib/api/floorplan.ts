@@ -81,11 +81,8 @@ export class FloorPlanAPI {
     try {
       const response = await api.get<JobStatusResponse>(`/jobs/${jobId}/status`);
       
-      if (!response.data.success) {
-        throw new ApiError(400, 'Failed to get job status', response.data.message);
-      }
-
-      return response.data.job;
+      // Backend returns job data directly, not wrapped in success/job structure
+      return response.data as ProcessingJob;
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;

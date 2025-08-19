@@ -89,13 +89,11 @@ export const useJobStatus = (options: UseJobStatusOptions) => {
     setError(null);
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.getplancast.com';
-      const response = await fetch(`${baseUrl}/jobs/${jobId}/status`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch job status');
-      }
-
-      const data = await response.json();
+      // Use the configured API client instead of direct fetch
+      const { apiClient } = await import('@/lib/api/client');
+      const response = await apiClient.get(`/jobs/${jobId}/status`);
+      
+      const data = response.data;
       const nowIso = new Date().toISOString();
       const status: JobStatus = {
         jobId: data.job_id,
