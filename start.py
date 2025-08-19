@@ -18,22 +18,22 @@ if project_root not in sys.path:
 
 def setup_persistent_storage():
     """Setup persistent storage for Railway deployment."""
-    # Check if we're on Railway with persistent storage
-    railway_persistent = os.getenv("RAILWAY_PERSISTENT_DIR", "/data")
+    # Use Railway's /tmp directory for model storage (persists during container lifetime)
+    tmp_dir = "/tmp"
     
-    if os.path.exists(railway_persistent):
-        print(f"🚀 Setting up Railway persistent storage: {railway_persistent}")
+    if os.path.exists(tmp_dir) and os.access(tmp_dir, os.W_OK):
+        print(f"🚀 Setting up Railway /tmp storage: {tmp_dir}")
         
         # Create models directory
-        models_dir = os.path.join(railway_persistent, "models")
+        models_dir = os.path.join(tmp_dir, "models")
         Path(models_dir).mkdir(parents=True, exist_ok=True)
         print(f"✅ Created models directory: {models_dir}")
         
         # Create other persistent directories
         persistent_dirs = [
-            os.path.join(railway_persistent, "output"),
-            os.path.join(railway_persistent, "temp"),
-            os.path.join(railway_persistent, "logs")
+            os.path.join(tmp_dir, "output"),
+            os.path.join(tmp_dir, "temp"),
+            os.path.join(tmp_dir, "logs")
         ]
         
         for dir_path in persistent_dirs:
@@ -42,7 +42,7 @@ def setup_persistent_storage():
         
         return True
     else:
-        print(f"ℹ️ Railway persistent storage not available, using local storage")
+        print(f"ℹ️ Railway /tmp storage not available, using local storage")
         return False
 
 def preload_cubicasa_model():

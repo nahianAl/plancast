@@ -77,13 +77,13 @@ class CubiCasaService:
         Args:
             models_dir: Directory to store model files (defaults to persistent storage on Railway)
         """
-        # Use Railway's persistent storage if available, otherwise fallback to local
+        # Use Railway's /tmp directory for model storage (persists between requests)
         if models_dir is None:
-            # Try Railway's persistent volume first
-            railway_persistent = os.getenv("RAILWAY_PERSISTENT_DIR", "/data")
-            if os.path.exists(railway_persistent):
-                models_dir = os.path.join(railway_persistent, "models")
-                logger.info(f"Using Railway persistent storage: {models_dir}")
+            # Try Railway's /tmp directory first (persists during container lifetime)
+            tmp_dir = "/tmp"
+            if os.path.exists(tmp_dir) and os.access(tmp_dir, os.W_OK):
+                models_dir = os.path.join(tmp_dir, "models")
+                logger.info(f"Using Railway /tmp storage: {models_dir}")
             else:
                 # Fallback to local storage
                 models_dir = "assets/models"
