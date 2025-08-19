@@ -36,7 +36,7 @@ export function useFileUpload(): UseFileUploadReturn {
       setJobId(job.job_id);
       setCurrentStep('File uploaded successfully! Processing...');
 
-      // Poll job progress until completion
+      // Poll job progress until completion (using correct field names)
       await pollJobProgress(
         job.job_id,
         (updatedJob) => {
