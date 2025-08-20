@@ -1,0 +1,98 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Viewer - simple_house</title>
+    <style>
+        body { margin: 0; padding: 20px; font-family: Arial, sans-serif; background: #f0f0f0; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .viewer { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .controls { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .model-info { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #333; margin: 0 0 10px 0; }
+        h2 { color: #555; margin: 0 0 15px 0; }
+        .model-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .model-item { text-align: center; }
+        .model-item img { max-width: 100%; height: auto; border-radius: 4px; }
+        .download-btn { display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 10px 5px; }
+        .download-btn:hover { background: #0056b3; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+        .stat { background: #f8f9fa; padding: 15px; border-radius: 4px; text-align: center; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #007bff; }
+        .stat-label { color: #666; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏠 3D Model Viewer</h1>
+            <h2>Simple rectangular house with 2 rooms</h2>
+        </div>
+        
+        <div class="viewer">
+            <h2>📊 Model Statistics</h2>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value">2</div>
+                    <div class="stat-label">Rooms</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">5</div>
+                    <div class="stat-label">Walls</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">420 sq ft</div>
+                    <div class="stat-label">Total Area</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <h2>🎮 Controls</h2>
+            <p><strong>Mouse:</strong> Left click + drag to rotate, Right click + drag to pan, Scroll to zoom</p>
+            <p><strong>Touch:</strong> One finger to rotate, Two fingers to pan and zoom</p>
+        </div>
+        
+        <div class="model-info">
+            <h2>📁 Generated Files</h2>
+            <div class="model-grid">
+                <div class="model-item">
+                    <h3>OBJ Format</h3>
+                    <p>Wavefront OBJ file - compatible with most 3D software</p>
+                    <a href="simple_house_1755657199.obj" class="download-btn" download>Download OBJ</a>
+                </div>
+                <div class="model-item">
+                    <h3>GLB Format</h3>
+                    <p>Binary glTF - optimized for web and real-time applications</p>
+                    <a href="simple_house_1755657199.glb" class="download-btn" download>Download GLB</a>
+                </div>
+                <div class="model-item">
+                    <h3>STL Format</h3>
+                    <p>STereoLithography - standard for 3D printing</p>
+                    <a href="simple_house_1755657199.stl" class="download-btn" download>Download STL</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="model-info">
+            <h2>🔍 Room Details</h2>
+            <div class="stats">
+
+                <div class="stat">
+                    <div class="stat-value">Living Room</div>
+                    <div class="stat-label">20' × 15' × 10'</div>
+                </div>
+
+                <div class="stat">
+                    <div class="stat-value">Bedroom</div>
+                    <div class="stat-label">12' × 10' × 10'</div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,498 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Floor Plan Viewer - test_image</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: #2a2a2a;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.3);
+        }
+        
+        .viewer {
+            flex: 1;
+            position: relative;
+        }
+        
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(42, 42, 42, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #ccc;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 2px;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        .download-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #444;
+        }
+        
+        .download-btn {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
+            background: #28a745;
+            text-decoration: none;
+            text-align: center;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        
+        .download-btn:hover {
+            background: #1e7e34;
+        }
+        
+        .stats {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .original-image {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>🏠 3D Floor Plan</h2>
+            <h3>test_image</h3>
+            
+            <div class="stats">
+                <h4>📊 Model Statistics</h4>
+                <div class="stat-item">
+                    <span>Vertices:</span>
+                    <span id="vertex-count">Loading...</span>
+                </div>
+                <div class="stat-item">
+                    <span>Faces:</span>
+                    <span id="face-count">Loading...</span>
+                </div>
+                <div class="stat-item">
+                    <span>Rooms:</span>
+                    <span>2</span>
+                </div>
+                <div class="stat-item">
+                    <span>Walls:</span>
+                    <span>8</span>
+                </div>
+            </div>
+            
+            <h4>📸 Original Floor Plan</h4>
+            <img src="../../test_image.jpg" alt="Original Floor Plan" class="original-image">
+            
+            <div class="download-section">
+                <h4>📁 Download 3D Models</h4>
+                <a href="test_image_1755658177.obj" download class="download-btn">
+                    📄 Download OBJ (Most Compatible)
+                </a>
+                <a href="test_image_1755658177.stl" download class="download-btn">
+                    🖨️ Download STL (3D Printing)
+                </a>
+                <a href="test_image_1755658177.glb" download class="download-btn">
+                    🌐 Download GLB (Web Optimized)
+                </a>
+            </div>
+        </div>
+        
+        <div class="viewer">
+            <div id="loading">Loading 3D Model...</div>
+            <div id="threejs-container"></div>
+            
+            <div class="controls">
+                <h4>🎮 Controls</h4>
+                
+                <div class="control-group">
+                    <button onclick="resetCamera()">🏠 Reset View</button>
+                    <button onclick="toggleWireframe()">🔲 Wireframe</button>
+                </div>
+                
+                <div class="control-group">
+                    <label>Room Color</label>
+                    <input type="color" id="room-color" value="#4a90e2" onchange="updateRoomColor()">
+                </div>
+                
+                <div class="control-group">
+                    <label>Wall Color</label>
+                    <input type="color" id="wall-color" value="#8b4513" onchange="updateWallColor()">
+                </div>
+                
+                <div class="control-group">
+                    <label>Lighting Intensity</label>
+                    <input type="range" id="light-intensity" min="0" max="2" step="0.1" value="1" onchange="updateLighting()">
+                </div>
+                
+                <div class="control-group">
+                    <button onclick="exportScreenshot()">📸 Screenshot</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    
+    <script>
+        let scene, camera, renderer, controls;
+        let roomMaterial, wallMaterial;
+        let ambientLight, directionalLight;
+        let model;
+        
+        // OBJ file content embedded
+        const objContent = `v 583.0 344.0 0.0
+v 686.0 344.0 0.0
+v 686.0 369.0 0.0
+v 583.0 369.0 0.0
+v 583.0 344.0 -0.25
+v 686.0 344.0 -0.25
+v 686.0 369.0 -0.25
+v 583.0 369.0 -0.25
+v 500.0 408.0 0.0
+v 686.0 408.0 0.0
+v 686.0 484.0 0.0
+v 500.0 484.0 0.0
+v 500.0 408.0 -0.25
+v 686.0 408.0 -0.25
+v 686.0 484.0 -0.25
+v 500.0 484.0 -0.25
+v 583.0 343.75 0.0
+v 583.0 344.25 0.0
+v 686.0 344.25 0.0
+v 686.0 343.75 0.0
+v 583.0 343.75 9.0
+v 583.0 344.25 9.0
+v 686.0 344.25 9.0
+v 686.0 343.75 9.0
+v 686.25 344.0 0.0
+v 685.75 344.0 0.0
+v 685.75 369.0 0.0
+v 686.25 369.0 0.0
+v 686.25 344.0 9.0
+v 685.75 344.0 9.0
+v 685.75 369.0 9.0
+v 686.25 369.0 9.0
+v 686.0 369.25 0.0
+v 686.0 368.75 0.0
+v 583.0 368.75 0.0
+v 583.0 369.25 0.0
+v 686.0 369.25 9.0
+v 686.0 368.75 9.0
+v 583.0 368.75 9.0
+v 583.0 369.25 9.0
+v 582.75 369.0 0.0
+v 583.25 369.0 0.0
+v 583.25 344.0 0.0
+v 582.75 344.0 0.0
+v 582.75 369.0 9.0
+v 583.25 369.0 9.0
+v 583.25 344.0 9.0
+v 582.75 344.0 9.0
+v 500.0 407.75 0.0
+v 500.0 408.25 0.0
+v 686.0 408.25 0.0
+v 686.0 407.75 0.0
+v 500.0 407.75 9.0
+v 500.0 408.25 9.0
+v 686.0 408.25 9.0
+v 686.0 407.75 9.0
+v 686.25 408.0 0.0
+v 685.75 408.0 0.0
+v 685.75 484.0 0.0
+v 686.25 484.0 0.0
+v 686.25 408.0 9.0
+v 685.75 408.0 9.0
+v 685.75 484.0 9.0
+v 686.25 484.0 9.0
+v 686.0 484.25 0.0
+v 686.0 483.75 0.0
+v 500.0 483.75 0.0
+v 500.0 484.25 0.0
+v 686.0 484.25 9.0
+v 686.0 483.75 9.0
+v 500.0 483.75 9.0
+v 500.0 484.25 9.0
+v 499.75 484.0 0.0
+v 500.25 484.0 0.0
+v 500.25 408.0 0.0
+v 499.75 408.0 0.0
+v 499.75 484.0 9.0
+v 500.25 484.0 9.0
+v 500.25 408.0 9.0
+v 499.75 408.0 9.0
+f 1 2 3 4
+f 8 7 6 5
+f 1 5 6 2
+f 2 6 7 3
+f 3 7 8 4
+f 4 8 5 1
+f 9 10 11 12
+f 16 15 14 13
+f 9 13 14 10
+f 10 14 15 11
+f 11 15 16 12
+f 12 16 13 9
+f 17 18 19 20
+f 24 23 22 21
+f 17 21 22 18
+f 18 22 23 19
+f 19 23 24 20
+f 20 24 21 17
+f 25 26 27 28
+f 32 31 30 29
+f 25 29 30 26
+f 26 30 31 27
+f 27 31 32 28
+f 28 32 29 25
+f 33 34 35 36
+f 40 39 38 37
+f 33 37 38 34
+f 34 38 39 35
+f 35 39 40 36
+f 36 40 37 33
+f 41 42 43 44
+f 48 47 46 45
+f 41 45 46 42
+f 42 46 47 43
+f 43 47 48 44
+f 44 48 45 41
+f 49 50 51 52
+f 56 55 54 53
+f 49 53 54 50
+f 50 54 55 51
+f 51 55 56 52
+f 52 56 53 49
+f 57 58 59 60
+f 64 63 62 61
+f 57 61 62 58
+f 58 62 63 59
+f 59 63 64 60
+f 60 64 61 57
+f 65 66 67 68
+f 72 71 70 69
+f 65 69 70 66
+f 66 70 71 67
+f 67 71 72 68
+f 68 72 69 65
+f 73 74 75 76
+f 80 79 78 77
+f 73 77 78 74
+f 74 78 79 75
+f 75 79 80 76
+f 76 80 77 73
+`;
+        
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x222222);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(20, 15, 20);
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth - 300, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            
+            document.getElementById('threejs-container').appendChild(renderer.domElement);
+            
+            // Create controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            
+            // Create lights
+            ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+            
+            directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(10, 10, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            
+            // Create materials
+            roomMaterial = new THREE.MeshLambertMaterial({ color: 0x4a90e2 });
+            wallMaterial = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
+            
+            // Load and parse OBJ
+            loadOBJFromContent(objContent);
+            
+            // Start animation loop
+            animate();
+            
+            // Hide loading
+            document.getElementById('loading').style.display = 'none';
+        }
+        
+        function loadOBJFromContent(content) {
+            const loader = new THREE.OBJLoader();
+            model = loader.parse(content);
+            
+            // Apply materials and calculate stats
+            let vertexCount = 0;
+            let faceCount = 0;
+            
+            model.traverse(function(child) {
+                if (child.isMesh) {
+                    // Assign material based on naming convention
+                    if (child.name.includes('room') || child.name.includes('floor')) {
+                        child.material = roomMaterial;
+                    } else {
+                        child.material = wallMaterial;
+                    }
+                    
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    
+                    // Count vertices and faces
+                    if (child.geometry) {
+                        vertexCount += child.geometry.attributes.position.count;
+                        faceCount += child.geometry.index ? child.geometry.index.count / 3 : child.geometry.attributes.position.count / 3;
+                    }
+                }
+            });
+            
+            // Center and scale the model
+            const box = new THREE.Box3().setFromObject(model);
+            const center = box.getCenter(new THREE.Vector3());
+            model.position.x = -center.x;
+            model.position.z = -center.z;
+            model.position.y = 0; // Keep on ground
+            
+            scene.add(model);
+            
+            // Update stats
+            document.getElementById('vertex-count').textContent = vertexCount;
+            document.getElementById('face-count').textContent = Math.floor(faceCount);
+            
+            console.log('Model loaded:', vertexCount, 'vertices,', Math.floor(faceCount), 'faces');
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        function resetCamera() {
+            camera.position.set(20, 15, 20);
+            controls.reset();
+        }
+        
+        function toggleWireframe() {
+            if (model) {
+                model.traverse(function(child) {
+                    if (child.isMesh) {
+                        child.material.wireframe = !child.material.wireframe;
+                    }
+                });
+            }
+        }
+        
+        function updateRoomColor() {
+            const color = document.getElementById('room-color').value;
+            roomMaterial.color.setHex(parseInt(color.substring(1), 16));
+        }
+        
+        function updateWallColor() {
+            const color = document.getElementById('wall-color').value;
+            wallMaterial.color.setHex(parseInt(color.substring(1), 16));
+        }
+        
+        function updateLighting() {
+            const intensity = document.getElementById('light-intensity').value;
+            directionalLight.intensity = intensity;
+        }
+        
+        function exportScreenshot() {
+            const link = document.createElement('a');
+            link.download = 'test_image_screenshot.png';
+            link.href = renderer.domElement.toDataURL();
+            link.click();
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            camera.aspect = (window.innerWidth - 300) / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth - 300, window.innerHeight);
+        });
+        
+        // Initialize when page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

@@ -6,6 +6,7 @@ import { Upload, FileImage, FileText, CheckCircle, Loader2 } from 'lucide-react'
 import FileUploadZone from '@/components/upload/FileUploadZone'
 import { NotificationBanner } from '@/components/common/NotificationBanner'
 import { config } from '@/lib/config'
+import Image from 'next/image'
 
 interface UploadedFile {
   file: File
@@ -155,10 +156,12 @@ export default function ConvertPage() {
               <div className="mb-6">
                 {uploadedFile.preview ? (
                   <div className="relative inline-block">
-                    <img
-                      src={uploadedFile.preview}
-                      alt="Floor plan preview"
-                      className="max-w-full h-64 object-contain rounded-lg border border-gray-200 dark:border-gray-600"
+                    <Image 
+                      src={uploadedFile.preview} 
+                      alt={uploadedFile.file.name} 
+                      width={64} 
+                      height={64} 
+                      className="object-cover rounded-lg border border-gray-200 dark:border-gray-600" 
                     />
                     <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
                       <CheckCircle className="w-3 h-3 inline mr-1" />

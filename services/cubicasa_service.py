@@ -525,19 +525,28 @@ class CubiCasaService:
             start_time = time.time()
             
             # Preprocess image
-            logger.info(f"📸 Preprocessing image for job {job_id}")
-            image_tensor, original_size = self._preprocess_image(image_bytes)
-            logger.info(f"✅ Image preprocessed: {original_size} -> {image_tensor.shape}")
-            
+            try:
+                logger.info(f"📸 Preprocessing image for job {job_id}")
+                image_tensor, original_size = self._preprocess_image(image_bytes)
+                logger.info(f"✅ Image preprocessed: {original_size} -> {image_tensor.shape}")
+            except Exception as e:
+                raise CubiCasaError(f"Image preprocessing failed: {str(e)}")
+
             # Run inference
-            logger.info(f"🤖 Running CubiCasa5K inference for job {job_id}")
-            outputs = self._run_inference(image_tensor)
-            logger.info(f"✅ Model inference completed: {outputs.shape}")
+            try:
+                logger.info(f"🤖 Running CubiCasa5K inference for job {job_id}")
+                outputs = self._run_inference(image_tensor)
+                logger.info(f"✅ Model inference completed: {outputs.shape}")
+            except Exception as e:
+                raise CubiCasaError(f"Model inference failed: {str(e)}")
             
             # Post-process outputs
-            logger.info(f"🔧 Post-processing outputs for job {job_id}")
-            result = self._postprocess_outputs(outputs, original_size)
-            
+            try:
+                logger.info(f"🔧 Post-processing outputs for job {job_id}")
+                result = self._postprocess_outputs(outputs, original_size)
+            except Exception as e:
+                raise CubiCasaError(f"Output post-processing failed: {str(e)}")
+
             processing_time = time.time() - start_time
             logger.info(f"🎉 CubiCasa5K processing completed for job {job_id} in {processing_time:.2f}s")
             logger.info(f"   Wall coordinates: {len(result.wall_coordinates)}")
@@ -545,9 +554,12 @@ class CubiCasaService:
             
             return result
             
-        except Exception as e:
+        except CubiCasaError as e:
             logger.error(f"❌ CubiCasa5K processing failed for job {job_id}: {str(e)}")
-            raise CubiCasaError(f"Failed to process image: {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"❌ An unexpected error occurred during CubiCasa5K processing for job {job_id}: {str(e)}")
+            raise CubiCasaError(f"An unexpected error occurred: {str(e)}")
     
     def health_check(self) -> Dict[str, Any]:
         """

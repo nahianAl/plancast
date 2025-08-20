@@ -12,6 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiClient } from '@/lib/api/client';
+import Image from 'next/image';
+
 
 interface RoomSuggestion {
   room_name: string;
@@ -248,14 +250,18 @@ export default function RoomSelectionPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="relative border rounded-lg overflow-hidden bg-white">
-                  {imageUrl && (
-                    <img 
+                <div className="relative w-full aspect-video border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                  {imageUrl ? (
+                    <Image 
                       src={imageUrl} 
-                      alt="Floor Plan" 
-                      className="w-full h-auto"
-                      onError={() => setImageUrl('/placeholder-floorplan.jpg')}
+                      alt="Floor plan" 
+                      layout="fill"
+                      objectFit="contain"
                     />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-500">
+                      Loading floor plan...
+                    </div>
                   )}
                   
                   {/* Room Highlighting Overlay */}

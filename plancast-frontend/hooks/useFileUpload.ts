@@ -36,23 +36,30 @@ export function useFileUpload(): UseFileUploadReturn {
       setJobId(job.job_id);
       setCurrentStep('File uploaded successfully! Processing...');
 
-      // Poll job progress until completion (using correct field names)
-      await pollJobProgress(
-        job.job_id,
-        (updatedJob) => {
-          setUploadProgress(updatedJob.progress);
-          setCurrentStep(getStepDescription(updatedJob.progress));
-        },
-        (completedJob) => {
-          setUploadProgress(100);
-          setCurrentStep('Processing complete!');
-          setIsUploading(false);
-        },
-        (err) => {
-          setError(err.message);
-          setIsUploading(false);
-        }
-      );
+      try {
+        // Poll job progress until completion (using correct field names)
+        await pollJobProgress(
+          job.job_id,
+          (updatedJob) => {
+            setUploadProgress(updatedJob.progress);
+            setCurrentStep(getStepDescription(updatedJob.progress));
+          },
+          (completedJob) => {
+            setUploadProgress(100);
+            setCurrentStep('Processing complete!');
+            setIsUploading(false);
+          },
+          (err) => {
+            setError(err.message);
+            setIsUploading(false);
+          }
+        );
+      } catch (pollError) {
+        const errorMessage = pollError instanceof Error ? pollError.message : 'Polling failed';
+        setError(errorMessage);
+        setIsUploading(false);
+        throw pollError;
+      }
 
       return job.job_id;
     } catch (err) {

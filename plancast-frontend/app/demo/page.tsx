@@ -3,7 +3,12 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Play, Pause, RotateCcw, Download, Share2 } from 'lucide-react'
-import ThreeViewer from '@/components/viewer/ThreeViewer'
+import dynamic from 'next/dynamic'
+
+const ThreeViewer = dynamic(() => import('@/components/viewer/ThreeViewer'), {
+  ssr: false,
+  loading: () => <p>Loading 3D viewer...</p>
+})
 
 export default function DemoPage() {
   const [isPlaying, setIsPlaying] = useState(false)

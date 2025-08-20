@@ -48,14 +48,23 @@ export default function SignUpPage() {
     setIsLoading(true)
 
     try {
-      // TODO: Replace with real API call
-      // For now, simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      setIsSuccess(true)
-      setTimeout(() => {
-        router.push('/auth/signin')
-      }, 2000)
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+
+      if (response.ok) {
+        setIsSuccess(true)
+        setTimeout(() => {
+          router.push('/auth/signin')
+        }, 2000)
+      } else {
+        const data = await response.json()
+        setError(data.message || 'An error occurred during registration.')
+      }
     } catch {
       setError('An error occurred during registration. Please try again.')
     } finally {

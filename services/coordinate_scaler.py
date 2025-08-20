@@ -304,15 +304,21 @@ class CoordinateScaler:
         
         try:
             # Calculate scale factor
-            scale_reference = self.calculate_scale_factor(
-                cubicasa_output, room_type, dimension_type, real_world_feet
-            )
-            
+            try:
+                scale_reference = self.calculate_scale_factor(
+                    cubicasa_output, room_type, dimension_type, real_world_feet
+                )
+            except Exception as e:
+                raise ScalingError(f"Failed to calculate scale factor: {str(e)}")
+
             # Convert coordinates to feet
-            scaled_coordinates = self.convert_coordinates_to_feet(
-                cubicasa_output, scale_reference
-            )
-            
+            try:
+                scaled_coordinates = self.convert_coordinates_to_feet(
+                    cubicasa_output, scale_reference
+                )
+            except Exception as e:
+                raise ScalingError(f"Failed to convert coordinates to feet: {str(e)}")
+
             processing_time = time.time() - start_time
             
             log_job_complete(job_id, "coordinate_scaling", processing_time, {
@@ -325,7 +331,7 @@ class CoordinateScaler:
             
             return scaled_coordinates
             
-        except Exception as e:
+        except ScalingError as e:
             processing_time = time.time() - start_time
             error_msg = str(e)
             
@@ -334,7 +340,17 @@ class CoordinateScaler:
             })
             
             logger.error(f"Coordinate scaling failed for job {job_id}: {error_msg}")
-            raise ScalingError(f"Scaling processing failed: {error_msg}")
+            raise
+        except Exception as e:
+            processing_time = time.time() - start_time
+            error_msg = f"An unexpected error occurred during scaling: {str(e)}"
+            
+            log_job_error(job_id, "coordinate_scaling", error_msg, {
+                "processing_time": processing_time
+            })
+            
+            logger.error(f"Coordinate scaling failed for job {job_id}: {error_msg}")
+            raise ScalingError(error_msg)
     
     def validate_scaling_input(self,
                              cubicasa_output: CubiCasaOutput,

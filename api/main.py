@@ -14,6 +14,8 @@ import asyncio
 import concurrent.futures
 from typing import List, Optional, Dict, Any
 from pathlib import Path
+import aiofiles
+import tempfile
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,7 +37,7 @@ from models.repository import ProjectRepository, UsageRepository, UserRepository
 from utils.validators import PlanCastValidator, ValidationError, SecurityError
 from services.websocket_manager import websocket_manager
 from services.coordinate_scaler import CoordinateScaler
-from shutil import copy2
+from services.test_pipeline import SimpleTestPipeline
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -178,183 +180,100 @@ class JobStatusResponse(BaseModel):
     completed_at: Optional[float] = None
     result: Optional[Dict[str, Any]] = None
 
-# Database dependency
-def get_db():
-    """Database session dependency."""
+def get_db_session_context():
+    """Context manager for getting a database session."""
     with get_db_session() as session:
         yield session
 
-# Background task for processing
-async def process_floorplan_background(job_id: str, file_content: bytes, filename: str, export_formats: str):
-    """Background task for processing floor plan files with real-time updates."""
-    try:
-        # TEMPORARY: Use simplified test pipeline instead of main pipeline
-        # TODO: REMOVE THIS - Replace with main pipeline after fixing core issues
-        from test_pipeline_simple import SimpleTestPipeline
-        
-        # Initialize the simplified test processor
-        processor = SimpleTestPipeline()
-        
-        # Parse export formats
-        formats_list = [fmt.strip() for fmt in export_formats.split(',') if fmt.strip()]
-        
-        # Create a progress callback function for real-time updates
-        async def progress_callback(step: str, progress: int, message: str):
-            """Callback function to send real-time updates during processing."""
-            # Update database
-            with get_db_session() as session:
-                ProjectRepository.update_project_status(
-                    session, 
-                    int(job_id), 
-                    ProjectStatus.PROCESSING,
-                    current_step=step,
-                    progress_percent=progress
-                )
-            
-            # Send WebSocket updates
-            await websocket_manager.broadcast_job_update(
-                job_id, 
-                "processing", 
-                progress, 
-                message
-            )
-            await websocket_manager.broadcast_processing_progress(
-                job_id, 
-                step, 
-                progress, 
-                message
-            )
-        
-        # TEMPORARY: Run simplified test pipeline instead of main pipeline
-        # TODO: REMOVE THIS - Replace with main pipeline after fixing core issues
-        await progress_callback("ai_analysis", 10, "Starting simplified test pipeline...")
-        
-        # Process the floor plan with simplified test pipeline
-        def run_processing():
-            return processor.process_test_image(
-                file_content=file_content,
-                filename=filename,
-                export_formats=formats_list
-            )
-        
-        # Run the processing in a thread pool with timeout
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            # Submit the processing job with a longer timeout for real model
-            future = executor.submit(run_processing)
-            
-            try:
-                # Wait for processing with a longer timeout (5 minutes for real model)
-                processing_result = future.result(timeout=300)  # 5 minutes timeout
-                
-                # TEMPORARY: Handle simplified test pipeline results
-                # TODO: REMOVE THIS - Replace with main pipeline result handling after fixing core issues
-                if processing_result.status == ProcessingStatus.COMPLETED and processing_result.exported_files:
-                    print(f"🔍 Simplified test pipeline completed successfully for job {job_id}")
-                    print(f"🔍 Exported files from test pipeline: {processing_result.exported_files}")
-                    
-                    # Copy test pipeline files to generated_models/{job_id} for frontend access
-                    job_models_dir = Path(f"output/generated_models/{job_id}")
-                    job_models_dir.mkdir(parents=True, exist_ok=True)
-                    
-                    # Build URLs to exported files under /models/{job_id}/
-                    exported_files = {}
-                    for fmt, path in (processing_result.exported_files or {}).items():
-                        try:
-                            src = Path(path)
-                            dst = job_models_dir / src.name
-                            copy2(src, dst)
-                            relative_url = f"/models/{job_id}/{dst.name}"
-                            exported_files[fmt] = (
-                                f"{PUBLIC_API_URL}{relative_url}" if PUBLIC_API_URL else relative_url
-                            )
-                            print(f"🔍 Copied and built URL for {fmt}: {exported_files[fmt]}")
-                        except Exception as e:
-                            print(f"❌ Error copying/building URL for {fmt}: {e}")
-                            # Fallback to raw path if something goes wrong
-                            exported_files[fmt] = path
-
-                    # Choose GLB as primary model URL if available
-                    glb_url = exported_files.get("glb", next(iter(exported_files.values()), ""))
-
-                    # TEMPORARY: Build result data for simplified test pipeline
-                    # TODO: REMOVE THIS - Replace with main pipeline result data after fixing core issues
-                    result_data = {
-                        "model_url": glb_url,
-                        "preview_url": "",
-                        "formats": list(exported_files.keys()),
-                        "processing_time": (processing_result.total_processing_time() or 0.0),
-                        "file_size_mb": sum(os.path.getsize(p) for p in (processing_result.exported_files or {}).values()) / (1024 * 1024) if processing_result.exported_files else 0.0,
-                        "output_files": exported_files,
-                        "pipeline": "simplified_test",  # TEMPORARY: Mark as test pipeline
-                    }
-                    
-                    print(f"🔍 Final exported_files for database: {exported_files}")
-                    print(f"🔍 Result data: {result_data}")
-                else:
-                    print(f"❌ Processing failed or no exported files for job {job_id}")
-                    print(f"🔍 Status: {processing_result.status}")
-                    print(f"🔍 Exported files: {processing_result.exported_files}")
-                    raise Exception(f"Processing failed: {processing_result.error_message}")
-                
-                with get_db_session() as session:
-                    print(f"🔍 Updating database for job {job_id} with output_files: {exported_files}")
-                    ProjectRepository.update_project_status(
-                        session, 
-                        int(job_id), 
-                        ProjectStatus.COMPLETED,
-                        current_step="completed",
-                        progress_percent=100,
-                        processing_time_seconds=processing_result.total_processing_time() or 0.0,
-                        output_files=exported_files,
-                        processing_metadata={"result": result_data}
-                    )
-                    print(f"✅ Database updated successfully for job {job_id}")
-                
-                # Send completion WebSocket update
-                print(f"🔍 Sending completion WebSocket update for job {job_id}")
-                print(f"🔍 Result data: {result_data}")
-                
-                # TEMPORARY: Send completion message for simplified test pipeline
-                # TODO: REMOVE THIS - Replace with main pipeline message after fixing core issues
-                await websocket_manager.broadcast_job_update(
-                    job_id, 
-                    "completed", 
-                    100, 
-                    "Simplified test pipeline completed successfully! (No scaling/cutouts)",
-                    result_data
-                )
-                
-                print(f"✅ Completion WebSocket update sent for job {job_id}")
-                
-            except concurrent.futures.TimeoutError:
-                # Processing timed out
-                future.cancel()
-                raise Exception("Processing timed out after 5 minutes. The floor plan may be too complex or the server is under heavy load.")
-                
-    except Exception as e:
-        # Mark as failed and send error update
-        error_message = str(e)
-        with get_db_session() as session:
-            ProjectRepository.update_project_status(
-                session, 
-                int(job_id), 
-                ProjectStatus.FAILED,
-                error_message=error_message
-            )
-        
-        # Send failure WebSocket update
-        await websocket_manager.broadcast_job_update(
-            job_id, 
-            "failed", 
-            0, 
-            f"Processing failed: {error_message}"
+async def _run_processing_in_thread(processor, file_content, filename, formats_list):
+    """Run the synchronous processing task in a thread pool."""
+    loop = asyncio.get_running_loop()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        return await loop.run_in_executor(
+            executor, processor.process_test_image, file_content, filename, formats_list
         )
 
-async def process_test_pipeline_background(job_id: str, file_content: bytes, filename: str, export_formats: str):
+async def _handle_processing_success(job_id, processing_result, progress_callback):
+    """Handle successful processing result."""
+    if processing_result.status == ProcessingStatus.COMPLETED and processing_result.exported_files:
+        job_models_dir = Path(f"output/generated_models/{job_id}")
+        job_models_dir.mkdir(parents=True, exist_ok=True)
+        
+        exported_files = {}
+        for fmt, path in (processing_result.exported_files or {}).items():
+            src = Path(path)
+            dst = job_models_dir / src.name
+            async with aiofiles.open(src, 'rb') as f_src:
+                async with aiofiles.open(dst, 'wb') as f_dst:
+                    await f_dst.write(await f_src.read())
+            relative_url = f"/models/{job_id}/{dst.name}"
+            exported_files[fmt] = f"{os.getenv('PUBLIC_API_URL', '')}{relative_url}"
+        
+        glb_url = exported_files.get("glb", next(iter(exported_files.values()), ""))
+        result_data = {
+            "model_url": glb_url,
+            "formats": list(exported_files.keys()),
+            "output_files": exported_files,
+        }
+
+        with get_db_session() as session:
+            ProjectRepository.update_project_status(
+                session,
+                int(job_id),
+                ProjectStatus.COMPLETED,
+                output_files=exported_files,
+                processing_metadata={"result": result_data},
+            )
+        
+        await progress_callback("completed", 100, "Processing completed successfully.")
+        await websocket_manager.broadcast_job_update(job_id, "completed", 100, "Completed", result_data)
+    else:
+        raise Exception(f"Processing failed: {processing_result.error_message}")
+
+async def _handle_processing_failure(job_id, e, progress_callback):
+    """Handle processing failure."""
+    error_message = str(e)
+    with get_db_session() as session:
+        ProjectRepository.update_project_status(
+            session, int(job_id), ProjectStatus.FAILED, error_message=error_message
+        )
+    await progress_callback("failed", 0, error_message)
+    await websocket_manager.broadcast_job_update(job_id, "failed", 0, error_message)
+
+# Background task for processing
+async def process_floorplan_background(job_id: str, tmp_path: str, filename: str, export_formats: str):
+    """Background task for processing floor plan files with real-time updates."""
+    async def progress_callback(step: str, progress: int, message: str):
+        with get_db_session() as session:
+            ProjectRepository.update_project_status(
+                session, int(job_id), ProjectStatus.PROCESSING, current_step=step, progress_percent=progress
+            )
+        await websocket_manager.broadcast_job_update(job_id, "processing", progress, message)
+        await websocket_manager.broadcast_processing_progress(job_id, step, progress, message)
+
+    try:
+        async with aiofiles.open(tmp_path, 'rb') as f:
+            file_content = await f.read()
+
+        processor = SimpleTestPipeline()
+        formats_list = [fmt.strip() for fmt in export_formats.split(',') if fmt.strip()]
+
+        await progress_callback("ai_analysis", 10, "Starting simplified test pipeline...")
+
+        processing_result = await _run_processing_in_thread(
+            processor, file_content, filename, formats_list
+        )
+        await _handle_processing_success(job_id, processing_result, progress_callback)
+
+    except Exception as e:
+        await _handle_processing_failure(job_id, e, progress_callback)
+async def process_test_pipeline_background(job_id: str, tmp_path: str, filename: str, export_formats: str):
     """Background task to run the simplified test pipeline (no scaling/cutouts)."""
     try:
+        async with aiofiles.open(tmp_path, 'rb') as f:
+            file_content = await f.read()
+
         # Lazy import to keep module load light
-        from test_pipeline_simple import SimpleTestPipeline
         from pathlib import Path as _Path
 
         # Parse export formats
@@ -380,7 +299,9 @@ async def process_test_pipeline_background(job_id: str, file_content: bytes, fil
             try:
                 src = Path(src_path)
                 dst = job_models_dir / src.name
-                copy2(src, dst)
+                async with aiofiles.open(src, 'rb') as f_src:
+                    async with aiofiles.open(dst, 'wb') as f_dst:
+                        await f_dst.write(await f_src.read())
                 relative_url = f"/models/{job_id}/{dst.name}"
                 exported_files[fmt] = f"{PUBLIC_API_URL}{relative_url}" if PUBLIC_API_URL else relative_url
             except Exception as copy_err:
@@ -446,10 +367,9 @@ async def health_check():
     """Health check endpoint with database status."""
     try:
         # Test database connection
-        from sqlalchemy import text
         with get_db_session() as session:
-            result = session.execute(text("SELECT 1"))
-            db_status = "healthy" if result.scalar() == 1 else "unhealthy"
+            result = session.query(User).first()
+            db_status = "healthy"
     except Exception:
         db_status = "unhealthy"
     
@@ -473,12 +393,14 @@ async def convert_floorplan(
         print(f"🔍 User-Agent: {request.headers.get('user-agent', 'Unknown')}")
         print(f"🔍 Content-Type: {request.headers.get('content-type', 'Unknown')}")
         
-        # Read file content
-        file_content = await file.read()
-        
+        # Stream file to a temporary location to handle large files
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
+            file_content = await file.read()
+            tmp.write(file_content)
+            tmp_path = tmp.name
+
         # Validate file
         try:
-            
             validation_result = validator.validate_upload_file(file_content, file.filename)
             
             if not validation_result['is_valid']:
@@ -487,31 +409,23 @@ async def convert_floorplan(
         except (ValidationError, SecurityError) as e:
             raise HTTPException(status_code=400, detail=str(e))
         
-        # Create project in database (avoid ORM enum coercion issues)
-        from sqlalchemy import text as sql_text
+        # Create project in database
         with get_db_session() as session:
-            # Resolve admin user id via raw SQL to bypass enum mapping mismatches
-            row = session.execute(
-                sql_text("SELECT id FROM users WHERE email=:email LIMIT 1"),
-                {"email": "admin@plancast.com"}
-            ).first()
-            if row and len(row) > 0:
-                user_id = int(row[0])
+            user = session.query(User).filter_by(email="admin@plancast.com").first()
+
+            if user:
+                user_id = user.id
             else:
                 # Insert admin matching DB enum (lowercase: 'free','pro','enterprise')
-                inserted = session.execute(
-                    sql_text(
-                        """
-                        INSERT INTO users (email, password_hash, subscription_tier, is_active, created_at)
-                        VALUES (:email, :password_hash, 'free', true, NOW())
-                        RETURNING id
-                        """
-                    ),
-                    {"email": "admin@plancast.com", "password_hash": "placeholder"}
-                ).first()
+                new_user = User(
+                    email="admin@plancast.com",
+                    password_hash="placeholder",
+                    subscription_tier="free",
+                    is_active=True
+                )
+                session.add(new_user)
                 session.commit()
-                user_id = int(inserted[0])
-
+                user_id = new_user.id
             # Create project record via repository (safe; only writes enum-free fields)
             project = ProjectRepository.create_project(
                 session=session,
@@ -541,7 +455,7 @@ async def convert_floorplan(
         background_tasks.add_task(
             process_floorplan_background,
             str(project_id),
-            file_content,
+            tmp_path,
             file.filename,
             export_formats
         )
@@ -588,8 +502,11 @@ async def convert_floorplan_test(
 ):
     """Upload endpoint to run the simplified test pipeline (no scaling/cutouts)."""
     try:
-        # Read file content
-        file_content = await file.read()
+        # Stream file to a temporary location
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
+            file_content = await file.read()
+            tmp.write(file_content)
+            tmp_path = tmp.name
 
         # Minimal validation (reuse existing validator for security)
         try:
@@ -600,27 +517,21 @@ async def convert_floorplan_test(
             raise HTTPException(status_code=400, detail=str(e))
 
         # Create project in DB
-        from sqlalchemy import text as sql_text
         with get_db_session() as session:
-            row = session.execute(
-                sql_text("SELECT id FROM users WHERE email=:email LIMIT 1"),
-                {"email": "admin@plancast.com"}
-            ).first()
-            if row and len(row) > 0:
-                user_id = int(row[0])
+            user = session.query(User).filter_by(email="admin@plancast.com").first()
+
+            if user:
+                user_id = user.id
             else:
-                inserted = session.execute(
-                    sql_text(
-                        """
-                        INSERT INTO users (email, password_hash, subscription_tier, is_active, created_at)
-                        VALUES (:email, :password_hash, 'free', true, NOW())
-                        RETURNING id
-                        """
-                    ),
-                    {"email": "admin@plancast.com", "password_hash": "placeholder"}
-                ).first()
+                new_user = User(
+                    email="admin@plancast.com",
+                    password_hash="placeholder",
+                    subscription_tier="free",
+                    is_active=True
+                )
+                session.add(new_user)
                 session.commit()
-                user_id = int(inserted[0])
+                user_id = new_user.id
 
             project = ProjectRepository.create_project(
                 session=session,
@@ -637,7 +548,7 @@ async def convert_floorplan_test(
         background_tasks.add_task(
             process_test_pipeline_background,
             str(project_id),
-            file_content,
+            tmp_path,
             file.filename,
             export_formats
         )

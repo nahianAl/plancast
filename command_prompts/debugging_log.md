@@ -207,4 +207,29 @@ This document tracks all debugging issues encountered during development and the
    - Check if persistent volumes are available in paid plans
    - Consider upgrading Railway plan if needed
 
-**Status**: 🔄 Need to implement alternative storage solution
+**Status**: ✅ Implemented - Using Railway /tmp storage
+
+### Issue #9: Persistent Frontend Cache Issue
+**Date**: August 19, 2025  
+**Error**: CORS errors persist even after backend is confirmed working via curl tests.
+
+**Root Cause**: Browser is aggressively caching old JavaScript files despite cache-busting headers.
+
+**Evidence**:
+- ✅ Backend working correctly (curl test successful)
+- ✅ CORS headers present in backend response
+- ✅ Job processing normally (status: "processing", progress: 10%)
+- ❌ Frontend still getting CORS errors
+
+**Solution - Force Complete Cache Clear**:
+
+1. **Hard Refresh**: `Ctrl+Shift+R` (Windows) or `Cmd+Shift+R` (Mac)
+2. **Developer Tools Cache Clear**:
+   - Open DevTools (F12)
+   - Right-click refresh button
+   - Select "Empty Cache and Hard Reload"
+3. **Incognito Mode**: Test in private/incognito browser window
+4. **Clear All Browser Data**: Clear cached images and files
+5. **Wait for Vercel Deployment**: Ensure latest frontend code is deployed
+
+**Status**: 🔄 In Progress - Need to force browser cache clear

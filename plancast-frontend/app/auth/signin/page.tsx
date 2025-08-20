@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useAuth } from '@/lib/auth-context'
+import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react'
@@ -14,7 +14,6 @@ export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { login } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,18 +21,17 @@ export default function SignInPage() {
     setIsLoading(true)
     setError('')
 
-    try {
-      const success = await login(formData.email, formData.password)
-      
-      if (success) {
-        router.push('/dashboard')
-      } else {
-        setError('Invalid email or password')
-      }
-    } catch {
-      setError('An error occurred. Please try again.')
-    } finally {
+    const result = await signIn('credentials', {
+      redirect: false,
+      email: formData.email,
+      password: formData.password
+    })
+
+    if (result?.error) {
+      setError('Invalid email or password')
       setIsLoading(false)
+    } else {
+      router.push('/dashboard')
     }
   }
 

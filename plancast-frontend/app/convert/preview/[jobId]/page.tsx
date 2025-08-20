@@ -1,16 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { ArrowLeft, Download, Eye, Settings, Share2, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
-import ThreeViewer from '@/components/viewer/ThreeViewer'
+import dynamic from 'next/dynamic'
 import { useJobStatus } from '@/hooks/useJobStatus'
 import { JobStatusIndicator } from '@/components/common/JobStatusIndicator'
 import { Progress } from '@/components/ui/progress'
 
 
-
+const ThreeViewer = dynamic(() => import('@/components/viewer/ThreeViewer'), {
+  ssr: false,
+  loading: () => <p>Loading 3D viewer...</p>
+})
 
 
 export default function PreviewPage() {

@@ -1,49 +1,32 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-
-export interface WebSocketMessage {
-  type: string;
-  data: Record<string, unknown>;
-  timestamp: string;
-}
-
-export interface JobStatusUpdate {
-  jobId: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress: number;
-  message?: string;
-  result?: Record<string, unknown>;
-}
+import { useNotifications } from './useNotifications';
 
 interface UseWebSocketOptions {
   url?: string;
-  autoConnect?: boolean;
-  onMessage?: (message: WebSocketMessage) => void;
-  onJobUpdate?: (update: JobStatusUpdate) => void;
   onConnect?: () => void;
   onDisconnect?: () => void;
+  onMessage?: (type: string, data: any) => void;
   onError?: (error: Error) => void;
 }
 
 export const useWebSocket = (options: UseWebSocketOptions = {}) => {
   const {
     url = process.env.NEXT_PUBLIC_WS_URL || 'wss://api.getplancast.com',
-    autoConnect = true,
-    onMessage,
-    onJobUpdate,
     onConnect,
     onDisconnect,
+    onMessage,
     onError,
   } = options;
 
-  const [isConnected, setIsConnected] = useState(false);
-  const [connectionError, setConnectionError] = useState<Error | null>(null);
-  const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState<Error | null>(null);
+  const { addNotification } = useNotifications();
 
   const maxReconnectAttempts = 5;
   const reconnectDelay = 1000;
@@ -54,25 +37,21 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
     }
 
     try {
-      // Clean up existing connection
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
 
-      // Create new socket connection
       console.log('🔌 Attempting WebSocket connection to:', url);
       socketRef.current = io(url, {
         path: '/socket.io',
-        transports: ['websocket', 'polling'],  // Try WebSocket first, then polling
+        transports: ['websocket', 'polling'],
         upgrade: true,
         rememberUpgrade: true,
         withCredentials: true,
-        // TEMPORARY: Add timeout and retry settings for debugging
         timeout: 20000,
         forceNew: true
       });
 
-      // Connection event handlers
       socketRef.current.on('connect', () => {
         console.log('WebSocket connected');
         setIsConnected(true);
@@ -86,132 +65,69 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
         setIsConnected(false);
         onDisconnect?.();
 
-        // Auto-reconnect for certain disconnect reasons
         if (reason === 'io server disconnect') {
-          // Server initiated disconnect, don't reconnect
           return;
         }
 
-        // Attempt reconnection
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
           const delay = reconnectDelay * Math.pow(2, reconnectAttemptsRef.current);
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectAttemptsRef.current++;
             connect();
           }, delay);
+        } else {
+            addNotification({
+                id: 'ws-reconnect-failed',
+                type: 'error',
+                message: 'Could not reconnect to the server. Please refresh the page.',
+                duration: null,
+            });
         }
       });
 
-      // TEMPORARY: Add error handling for CORS issues
       socketRef.current.on('connect_error', (error) => {
         console.error('🔌 WebSocket connection error:', error);
-        console.error('🔌 Error details:', {
-          message: error.message,
-          name: error.name,
-          stack: error.stack
-        });
         setConnectionError(error);
         setIsConnected(false);
         onError?.(error);
+        addNotification({
+            id: 'ws-connect-error',
+            type: 'error',
+            message: 'Could not connect to the server. Please check your connection.',
+            duration: 5000,
+        });
       });
 
-      // Message handlers
-      socketRef.current.on('message', (data) => {
-        const message: WebSocketMessage = {
-          type: 'message',
-          data: data as Record<string, unknown>,
-          timestamp: new Date().toISOString(),
-        };
-        setLastMessage(message);
-        onMessage?.(message);
-      });
-
-      // Job status updates
-      socketRef.current.on('job_status', (data: JobStatusUpdate) => {
-        const message: WebSocketMessage = {
-          type: 'job_status',
-          data: data as unknown as Record<string, unknown>,
-          timestamp: new Date().toISOString(),
-        };
-        setLastMessage(message);
-        onMessage?.(message);
-        onJobUpdate?.(data);
-      });
-
-      // Processing progress updates
-      socketRef.current.on('processing_progress', (data) => {
-        const message: WebSocketMessage = {
-          type: 'processing_progress',
-          data: data as Record<string, unknown>,
-          timestamp: new Date().toISOString(),
-        };
-        setLastMessage(message);
-        onMessage?.(message);
-        onJobUpdate?.(data);
+      socketRef.current.on('message', (data: { type: string; payload: any }) => {
+        onMessage?.(data.type, data.payload);
       });
 
     } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
+      console.error('Failed to initialize WebSocket:', error);
       setConnectionError(error as Error);
-      onError?.(error as Error);
     }
-  }, [url, onConnect, onDisconnect, onError, onMessage, onJobUpdate]);
+  }, [url, onConnect, onDisconnect, onMessage, onError, addNotification]);
 
-  const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-    }
-    
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-      socketRef.current = null;
-    }
-    
-    setIsConnected(false);
-    setConnectionError(null);
-    reconnectAttemptsRef.current = 0;
-  }, []);
+  useEffect(() => {
+    connect();
 
-  const sendMessage = useCallback((type: string, data: Record<string, unknown>) => {
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, [connect]);
+
+  const sendMessage = useCallback((type: string, data: Record<string, unknown>): boolean => {
     if (socketRef.current?.connected) {
-      socketRef.current.emit(type, data);
+      socketRef.current.emit('message', { type, payload: data });
       return true;
     }
-    console.warn('WebSocket not connected, message not sent:', { type, data });
     return false;
   }, []);
 
-  const subscribeToJob = useCallback((jobId: string) => {
-    return sendMessage('subscribe_job', { jobId });
-  }, [sendMessage]);
-
-  const unsubscribeFromJob = useCallback((jobId: string) => {
-    return sendMessage('unsubscribe_job', { jobId });
-  }, [sendMessage]);
-
-  // Auto-connect on mount
-  useEffect(() => {
-    // TEMPORARY: Disable WebSocket auto-connect for debugging
-    // TODO: REMOVE THIS - Re-enable WebSocket after fixing connection issues
-    if (false && autoConnect) {
-      connect();
-    }
-
-    return () => {
-      disconnect();
-    };
-  }, [autoConnect, connect, disconnect]);
-
-  return {
-    isConnected,
-    connectionError,
-    lastMessage,
-    connect,
-    disconnect,
-    sendMessage,
-    subscribeToJob,
-    unsubscribeFromJob,
-  };
+  return { isConnected, connectionError, sendMessage };
 };
-
-export default useWebSocket;

@@ -78,13 +78,16 @@ class OpeningCutoutGenerator:
         logger.info(f"Generating cutouts for {len(scaled_coords.door_coordinates)} doors and {len(scaled_coords.window_coordinates)} windows")
         
         try:
+            # Check for zero scale factor to prevent division by zero
+            scale_factor = scaled_coords.scale_reference.scale_factor
+            if scale_factor == 0:
+                raise OpeningCutoutError("Scale factor cannot be zero.")
+
             # Convert door/window coordinates to feet
-            doors_feet = [(x / scaled_coords.scale_reference.scale_factor, 
-                          y / scaled_coords.scale_reference.scale_factor) 
+            doors_feet = [(x / scale_factor, y / scale_factor) 
                          for x, y in scaled_coords.door_coordinates]
             
-            windows_feet = [(x / scaled_coords.scale_reference.scale_factor, 
-                           y / scaled_coords.scale_reference.scale_factor) 
+            windows_feet = [(x / scale_factor, y / scale_factor) 
                           for x, y in scaled_coords.window_coordinates]
             
             # Group openings by wall segment

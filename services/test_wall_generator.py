@@ -282,9 +282,6 @@ class SimpleWallGenerator:
             id=wall_id,
             vertices=vertices,
             faces=faces,
-            wall_type="interior",
-            length_feet=length,
             height_feet=wall_height_feet,
-            thickness_feet=wall_thickness_feet,
-            metadata=metadata
+            thickness_feet=wall_thickness_feet
         )

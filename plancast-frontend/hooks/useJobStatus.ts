@@ -66,13 +66,11 @@ export const useJobStatus = (options: UseJobStatusOptions) => {
         setError(currentUpdate.message || 'Job failed');
       }
     }
-  }, [currentUpdate, jobStatus?.createdAt, onStatusChange, onComplete, onError]);
+  }, [currentUpdate, onStatusChange, onComplete, onError]);
 
   // Subscribe to job updates
   useEffect(() => {
-    // TEMPORARY: Disable WebSocket subscription for debugging
-    // TODO: REMOVE THIS - Re-enable WebSocket subscription after fixing connection issues
-    if (false && autoSubscribe && isConnected && jobId) {
+    if (autoSubscribe && isConnected && jobId) {
       subscribeToJob(jobId);
 
       return () => {
@@ -85,11 +83,16 @@ export const useJobStatus = (options: UseJobStatusOptions) => {
   const fetchJobStatus = useCallback(async () => {
     if (!jobId) return;
 
+    // Only fetch if there's no status or the status is not final
+    if (jobStatus && ['completed', 'failed'].includes(jobStatus.status)) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      // Use the configured API client instead of direct fetch
       const { apiClient } = await import('@/lib/api/client');
       const response = await apiClient.get(`/jobs/${jobId}/status`);
       
@@ -113,32 +116,17 @@ export const useJobStatus = (options: UseJobStatusOptions) => {
     } finally {
       setIsLoading(false);
     }
-  }, [jobId, onError]);
+  }, [jobId, jobStatus, onError]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchJobStatus();
+  }, [fetchJobStatus]);
 
   // Manual refresh function
   const refresh = useCallback(() => {
     fetchJobStatus();
   }, [fetchJobStatus]);
-
-  // TEMPORARY: Add polling for job status updates (WebSocket disabled)
-  // TODO: REMOVE THIS - Re-enable WebSocket after fixing connection issues
-  useEffect(() => {
-    if (!jobId) return;
-
-    // Initial fetch
-    fetchJobStatus();
-
-    // Set up polling for processing jobs
-    const pollInterval = setInterval(async () => {
-      if (jobStatus?.status === 'pending' || jobStatus?.status === 'processing') {
-        await fetchJobStatus();
-      }
-    }, 2000); // Poll every 2 seconds
-
-    return () => {
-      clearInterval(pollInterval);
-    };
-  }, [jobId, fetchJobStatus, jobStatus?.status]);
 
   // Subscribe/unsubscribe manually
   const subscribe = useCallback(() => {
